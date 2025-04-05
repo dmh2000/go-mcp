@@ -1,0 +1,41 @@
+2025/04/05 16:24:04 MCP Server log initialized
+2025/04/05 16:24:04 MCP Server starting, using stdio for communication
+2025/04/05 16:24:04 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[random_string]}
+2025/04/05 16:24:04 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:25:43 MCP Server log initialized
+2025/04/05 16:25:43 MCP Server starting, using stdio for communication
+2025/04/05 16:25:43 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[random_string]}
+2025/04/05 16:25:43 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:26:57 MCP Server log initialized
+2025/04/05 16:26:57 MCP Server starting, using stdio for communication
+2025/04/05 16:26:57 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[random_string]}
+2025/04/05 16:26:57 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:28:18 MCP Server log initialized
+2025/04/05 16:28:18 MCP Server starting, using stdio for communication
+2025/04/05 16:28:18 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[random_string]}
+2025/04/05 16:28:18 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:28:39 MCP Server log initialized
+2025/04/05 16:28:39 MCP Server starting, using stdio for communication
+2025/04/05 16:28:39 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[random_string]}
+2025/04/05 16:28:39 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:28:53 MCP Server log initialized
+2025/04/05 16:28:53 MCP Server starting, using stdio for communication
+2025/04/05 16:28:53 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[RandomString]}
+2025/04/05 16:28:53 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:29:22 MCP Server log initialized
+2025/04/05 16:29:22 MCP Server starting, using stdio for communication
+2025/04/05 16:29:22 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[RandomString]}
+2025/04/05 16:29:22 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:33:30 MCP Server log initialized
+2025/04/05 16:33:30 MCP Server starting, using stdio for communication
+2025/04/05 16:33:30 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[RandomString]}
+2025/04/05 16:33:30 JSON-RPC codec created, waiting for client requests
+2025/04/05 16:33:30 ERROR serving request: json: cannot unmarshal object into Go value of type [1]interface {}
+2025/04/05 16:40:12 MCP Server log initialized
+2025/04/05 16:40:12 MCP Server starting, using stdio for communication
+2025/04/05 16:40:12 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[RandomString]}
+2025/04/05 16:40:12 Custom JSON-RPC codec created, waiting for client requests
+2025/04/05 16:40:12 Received request: method=MCPService.RandomString, params={"length":20}
+2025/04/05 16:40:12 RandomString method called with length: 20
+2025/04/05 16:40:12 Sending response: {"jsonrpc":"2.0","id":1,"result":{"result":"NiKo80U7pR5FRjTywiz8"}}
+2025/04/05 16:40:12 ERROR serving request: EOF

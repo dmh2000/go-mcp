@@ -1,0 +1,5 @@
+DEBUG: Custom JSON-RPC codec created, waiting for client requests
+DEBUG: Starting to serve requests
+for communication
+2025/04/05 16:39:51 Initialization response: {Name:Go MCP Server Version:1.0.0 Capabilities:[RandomString]}
+2025/04/05 16:39:51 Custom JSON-RPC codec created, waiting for client requests

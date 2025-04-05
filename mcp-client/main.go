@@ -63,24 +63,24 @@ type MCPClient struct {
 // NewMCPClient creates a new MCP client and starts the server
 func NewMCPClient(serverPath string) (*MCPClient, error) {
 	cmd := exec.Command(serverPath)
-	
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdin pipe: %w", err)
 	}
-	
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
 	}
-	
+
 	cmd.Stderr = os.Stderr // Forward server's stderr to our stderr
-	
+
 	err = cmd.Start()
 	if err != nil {
 		return nil, fmt.Errorf("failed to start MCP server: %w", err)
 	}
-	
+
 	return &MCPClient{
 		cmd:    cmd,
 		stdin:  stdin,
@@ -94,11 +94,11 @@ func (c *MCPClient) Close() error {
 	if c.stdin != nil {
 		c.stdin.Close()
 	}
-	
+
 	if c.cmd != nil && c.cmd.Process != nil {
 		return c.cmd.Process.Kill()
 	}
-	
+
 	return nil
 }
 
@@ -109,16 +109,16 @@ func (c *MCPClient) Initialize() (*InitResponse, error) {
 	if err := c.readResponse(&rpcResp); err != nil {
 		return nil, fmt.Errorf("failed to read initialization response: %w", err)
 	}
-	
+
 	// Parse the initialization response
 	var initResp InitResponse
 	if err := json.Unmarshal(rpcResp.Result, &initResp); err != nil {
 		return nil, fmt.Errorf("failed to parse initialization response: %w", err)
 	}
-	
+
 	// Store server capabilities
 	c.serverCap = initResp.Capabilities
-	
+
 	return &initResp, nil
 }
 
@@ -128,7 +128,7 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 	id := c.nextID
 	c.nextID++
 	c.mutex.Unlock()
-	
+
 	// Create the RPC request
 	req := RPCRequest{
 		JSONRPC: "2.0",
@@ -136,33 +136,37 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 		Params:  params,
 		ID:      id,
 	}
-	
+
 	// Marshal and send the request
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
+	fmt.Fprintf(os.Stderr, "DEBUG - Sending request: %s\n", string(reqBytes))
+
 	if _, err := c.stdin.Write(append(reqBytes, '\n')); err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	
+
 	// Read the response
 	var rpcResp RPCResponse
 	if err := c.readResponse(&rpcResp); err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
+	fmt.Fprintf(os.Stderr, "DEBUG - Received response: %+v\n", rpcResp)
+
 	// Check for RPC error
 	if rpcResp.Error != nil {
 		return fmt.Errorf("RPC error: %d - %s", rpcResp.Error.Code, rpcResp.Error.Message)
 	}
-	
+
 	// Unmarshal the result
 	if err := json.Unmarshal(rpcResp.Result, result); err != nil {
 		return fmt.Errorf("failed to unmarshal result: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -172,11 +176,11 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 	if err != nil {
 		return fmt.Errorf("failed to read from stdout: %w", err)
 	}
-	
+
 	if err := json.Unmarshal([]byte(line), resp); err != nil {
 		return fmt.Errorf("failed to unmarshal response: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -184,11 +188,11 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 func (c *MCPClient) RandomString(length int) (string, error) {
 	args := RandomStringArgs{Length: length}
 	var result RandomStringResponse
-	
+
 	if err := c.Call("MCPService.RandomString", args, &result); err != nil {
 		return "", err
 	}
-	
+
 	return result.Result, nil
 }
 
@@ -203,27 +207,27 @@ func (c *MCPClient) HasCapability(capability string) bool {
 }
 
 func main() {
-	// Create a new MCP client
-	client, err := NewMCPClient("../mcp-server/mcp-server")
+	// Update the server path to use the absolute path
+	client, err := NewMCPClient("/home/dmh2000/projects/mcp/mcp-server/mcp-server")
 	if err != nil {
 		log.Fatalf("Failed to create MCP client: %v", err)
 	}
 	defer client.Close()
-	
+
 	// Process the initialization message
 	initResp, err := client.Initialize()
 	if err != nil {
 		log.Fatalf("Failed to initialize: %v", err)
 	}
-	
+
 	// Print the initialization response
 	fmt.Printf("Connected to MCP server:\n")
 	fmt.Printf("  Name: %s\n", initResp.Name)
 	fmt.Printf("  Version: %s\n", initResp.Version)
 	fmt.Printf("  Capabilities: %v\n", initResp.Capabilities)
-	
+
 	// Test the RandomString capability if available
-	if client.HasCapability("random_string") {
+	if client.HasCapability("RandomString") {
 		fmt.Println("\nTesting RandomString capability:")
 		randomStr, err := client.RandomString(20)
 		if err != nil {
