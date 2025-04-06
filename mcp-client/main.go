@@ -3,12 +3,37 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
+	"time"
+)
+
+// Constants for configuration
+const (
+	// JSON-RPC protocol version
+	jsonRPCVersion = "2.0"
+
+	// Initial request ID
+	initialRequestID = 1
+
+	// Method names
+	methodRandomString = "MCPService.RandomString"
+
+	// Timeouts and delays
+	readTimeoutDuration     = 10 * time.Second
+	shutdownTimeoutDuration = 3 * time.Second
+
+	// Default test parameters
+	defaultRandomStringLength = 20
+
+	// Server path
+	defaultServerPath = "../bin/mcp-server"
 )
 
 // InitResponse represents the initialization response from the MCP server
@@ -85,18 +110,49 @@ func NewMCPClient(serverPath string) (*MCPClient, error) {
 		cmd:    cmd,
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout),
-		nextID: 1,
+		nextID: initialRequestID,
 	}, nil
 }
 
 // Close shuts down the MCP client and server
 func (c *MCPClient) Close() error {
+	// First, close stdin to signal EOF to the server
 	if c.stdin != nil {
-		c.stdin.Close()
+		if err := c.stdin.Close(); err != nil {
+			// Log but continue with shutdown
+			fmt.Fprintf(os.Stderr, "Error closing stdin: %v\n", err)
+		}
 	}
 
+	// Only force kill if we have a process and no other option
 	if c.cmd != nil && c.cmd.Process != nil {
-		return c.cmd.Process.Kill()
+		// Wait for the process to exit naturally (with timeout)
+		done := make(chan error, 1)
+		go func() {
+			// Wait retrieves process state after completion
+			done <- c.cmd.Wait()
+		}()
+
+		// Give the process some time to exit gracefully
+		select {
+		case err := <-done:
+			if err != nil {
+				// Process exited with an error
+				if exitErr, ok := err.(*exec.ExitError); ok {
+					fmt.Fprintf(os.Stderr, "Server process exited with status: %v\n", exitErr.ExitCode())
+				}
+				return fmt.Errorf("server terminated with error: %w", err)
+			}
+			// Process exited normally
+			return nil
+		case <-time.After(shutdownTimeoutDuration):
+			// Process didn't exit within timeout, force kill
+			fmt.Fprintf(os.Stderr, "Server didn't exit within timeout, forcing termination\n")
+			if err := c.cmd.Process.Kill(); err != nil {
+				return fmt.Errorf("failed to kill server process: %w", err)
+			}
+			return fmt.Errorf("server process killed after timeout")
+		}
 	}
 
 	return nil
@@ -131,7 +187,7 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 
 	// Create the RPC request
 	req := RPCRequest{
-		JSONRPC: "2.0",
+		JSONRPC: jsonRPCVersion,
 		Method:  method,
 		Params:  params,
 		ID:      id,
@@ -157,6 +213,12 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 
 	fmt.Fprintf(os.Stderr, "DEBUG - Received response: %+v\n", rpcResp)
 
+	// Validate the response ID matches the request ID
+	if rpcResp.ID != id {
+		return fmt.Errorf("response ID mismatch: got %d, expected %d (possible out-of-order response)",
+			rpcResp.ID, id)
+	}
+
 	// Check for RPC error
 	if rpcResp.Error != nil {
 		return fmt.Errorf("RPC error: %d - %s", rpcResp.Error.Code, rpcResp.Error.Message)
@@ -170,18 +232,52 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 	return nil
 }
 
-// readResponse reads a JSON-RPC response from the server
+// readResponse reads a JSON-RPC response from the server with a timeout
 func (c *MCPClient) readResponse(resp *RPCResponse) error {
-	line, err := c.stdout.ReadString('\n')
-	if err != nil {
-		return fmt.Errorf("failed to read from stdout: %w", err)
-	}
+	// Create a channel to signal when the read operation is complete
+	responseCh := make(chan struct {
+		line string
+		err  error
+	}, 1)
 
-	if err := json.Unmarshal([]byte(line), resp); err != nil {
-		return fmt.Errorf("failed to unmarshal response: %w", err)
-	}
+	// Default timeout for reads (can be made configurable)
+	// Use the global constant for timeout
+	readTimeout := readTimeoutDuration
 
-	return nil
+	// Perform the read operation in a separate goroutine
+	go func() {
+		line, err := c.stdout.ReadString('\n')
+		responseCh <- struct {
+			line string
+			err  error
+		}{line, err}
+	}()
+
+	// Wait for either the response or a timeout
+	select {
+	case result := <-responseCh:
+		if result.err != nil {
+			// Specifically check for EOF and provide a clearer error message
+			if result.err == io.EOF {
+				return fmt.Errorf("server process terminated unexpectedly (EOF received)")
+			}
+			// Check for unexpected closed pipe or similar conditions
+			if strings.Contains(result.err.Error(), "closed") ||
+				strings.Contains(result.err.Error(), "broken pipe") {
+				return fmt.Errorf("connection to server closed unexpectedly: %w", result.err)
+			}
+			// General error case
+			return fmt.Errorf("failed to read from stdout: %w", result.err)
+		}
+
+		if err := json.Unmarshal([]byte(result.line), resp); err != nil {
+			return fmt.Errorf("failed to unmarshal response: %w", err)
+		}
+
+		return nil
+	case <-time.After(readTimeout):
+		return fmt.Errorf("timeout waiting for server response after %v", readTimeout)
+	}
 }
 
 // RandomString calls the RandomString method on the MCP server
@@ -189,7 +285,7 @@ func (c *MCPClient) RandomString(length int) (string, error) {
 	args := RandomStringArgs{Length: length}
 	var result RandomStringResponse
 
-	if err := c.Call("MCPService.RandomString", args, &result); err != nil {
+	if err := c.Call(methodRandomString, args, &result); err != nil {
 		return "", err
 	}
 
@@ -207,8 +303,21 @@ func (c *MCPClient) HasCapability(capability string) bool {
 }
 
 func main() {
-	// Update the server path to use the absolute path
-	client, err := NewMCPClient("/home/dmh2000/projects/mcp/mcp-server/mcp-server")
+	// Define command line flags
+	serverPathFlag := flag.String("server", "", "Path to the MCP server executable (default: use built-in path)")
+	flag.Parse()
+
+	// Determine the server path: use command line argument if provided, otherwise use default
+	serverPath := defaultServerPath
+	if *serverPathFlag != "" {
+		serverPath = *serverPathFlag
+		fmt.Printf("Using server path from command line: %s\n", serverPath)
+	} else {
+		fmt.Printf("Using default server path: %s\n", serverPath)
+	}
+
+	// Create the MCP client with the selected server path
+	client, err := NewMCPClient(serverPath)
 	if err != nil {
 		log.Fatalf("Failed to create MCP client: %v", err)
 	}
@@ -229,10 +338,10 @@ func main() {
 	// Test the RandomString capability if available
 	if client.HasCapability("RandomString") {
 		fmt.Println("\nTesting RandomString capability:")
-		randomStr, err := client.RandomString(20)
+		randomStr, err := client.RandomString(defaultRandomStringLength)
 		if err != nil {
 			log.Fatalf("Failed to call RandomString: %v", err)
 		}
-		fmt.Printf("  Random string (20 chars): %s\n", randomStr)
+		fmt.Printf("  Random string (%d chars): %s\n", defaultRandomStringLength, randomStr)
 	}
 }

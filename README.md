@@ -42,3 +42,37 @@ in directory mcp-client, create a model context protocol client. the client shou
     x Server configuration values are hardcoded rather than configured via environment/config.
 
   The code works but would benefit from addressing these issues for production use.
+
+  =====================================================================
+
+ x. Wait Issue: The client doesn't wait for the server process to finish. If the server process terminates
+  abnormally, there's no way to get the exit status.
+ x. Potential Deadlock: If the server doesn't respond after a request is sent, the client will hang forever
+   in readResponse.
+  x. No JSON-RPC Validation: The client doesn't validate if the response ID matches the request ID, which
+  could lead to response mismatches.
+  4. No EOF Handling: If the server process ends, the client's readResponse might not properly handle EOF.
+
+  Idiomatic Go Improvements:
+
+  1. Type Reuse: The RPCRequest/Response types could be moved to a shared package to avoid code duplication
+  between client and server.
+  2. Constants: JSON-RPC version "2.0" should be a constant, not a string literal.
+  3. Documentation: Although there are basic comments, some exported methods like HasCapability lack proper
+  godoc comments.
+  4. Options Pattern: Functions like NewMCPClient could benefit from the functional options pattern for
+  better extensibility.
+  5. Interface Usage: Define interfaces for easier testing and flexibility, e.g., an interface for the
+  client operations.
+
+  High-Level Suggestions:
+
+  1. Add proper context support throughout the codebase.
+  2. Implement connection timeouts and request timeouts.
+  3. Add more robust error handling, especially for network-related operations.
+  4. Use proper logging instead of direct stderr writes.
+  5. Make configuration (server path, etc.) externally configurable.
+  6. Improve test coverage and consider mocking the server for unit tests.
+
+  The code is generally well-structured and follows many Go conventions, but these improvements would make
+  it more robust and maintainable.

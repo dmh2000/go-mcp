@@ -7,4 +7,5 @@ build:
 clean:
 	$(MAKE) -C mcp-server clean
 	$(MAKE) -C mcp-client clean
+	@rm -f bin/*
 

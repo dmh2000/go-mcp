@@ -1,9 +1,8 @@
 .PHONY: build clean
 
-# clean:
-	-rm mcp-client
-	-rm mcp-server.log
-
 build:
-	go build .
+	go build  -o ../bin/mcp-server .
+
+clean:
+	@rm -f mcp-server.log
 
