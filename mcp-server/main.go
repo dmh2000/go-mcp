@@ -88,18 +88,36 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 		return fmt.Errorf("requested length %d exceeds maximum allowed length %d", length, maxRandomStringLength)
 	}
 
-	b := make([]byte, length)
-	_, err := rand.Read(b)
-	if err != nil {
-		return fmt.Errorf("failed to generate random string: %w", err)
+	// Prepare result buffer
+	result := make([]byte, length)
+
+	// Calculate the largest byte value that won't cause bias
+	// We want random bytes in range [0, unbiased). Any value >= unbiased is rejected.
+	charsetLen := len(randomStringCharset)
+	// Find largest multiple of charset length not exceeding 256
+	unbiased := 256 / charsetLen * charsetLen
+
+	// Generate random bytes with rejection sampling
+	randomBuf := make([]byte, 1)
+	for i := 0; i < length; i++ {
+		// Keep trying until we get an unbiased byte
+		for {
+			_, err := rand.Read(randomBuf)
+			if err != nil {
+				return fmt.Errorf("failed to generate random string: %w", err)
+			}
+
+			// Reject if the value would cause bias
+			if randomBuf[0] < byte(unbiased) {
+				// No bias - use this byte
+				result[i] = randomStringCharset[randomBuf[0]%byte(charsetLen)]
+				break
+			}
+			// If biased, reject and try again
+		}
 	}
 
-	// Map the random bytes to the charset
-	for i := range b {
-		b[i] = randomStringCharset[int(b[i])%len(randomStringCharset)]
-	}
-
-	reply.Result = string(b)
+	reply.Result = string(result)
 	return nil
 }
 
