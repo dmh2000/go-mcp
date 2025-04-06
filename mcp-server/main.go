@@ -4,18 +4,40 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 )
 
-// Maximum length for generated random strings
-const maxRandomStringLength = 1024
+// Constants for server configuration and behavior
+const (
+	// Service information
+	serviceName    = "Go MCP Server"
+	serviceVersion = "1.0.0"
+
+	// File paths
+	logFilePath = "mcp-server.log"
+
+	// Random string generation
+	maxRandomStringLength = 1024
+	defaultStringLength   = 10
+	randomStringCharset   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	// JSON-RPC
+	jsonRPCVersion = "2.0"
+	shutdownMsgID  = 999
+	initMsgID      = 0
+
+	// Timeouts and delays
+	shutdownDelay = 500 * time.Millisecond
+)
 
 // MCPService represents the Model Context Protocol service
 type MCPService struct{}
@@ -44,8 +66,8 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 	log.Println("MCP Server initialized")
 	log.Println("Initialize method called")
 	*reply = InitResponse{
-		Name:    "Go MCP Server",
-		Version: "1.0.0",
+		Name:    serviceName,
+		Version: serviceVersion,
 		Capabilities: []string{
 			"RandomString",
 		},
@@ -57,10 +79,10 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringResponse) error {
 	log.Printf("Generating random string of length %d", args.Length)
 	log.Printf("RandomString method called with length: %d", args.Length)
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	// Use the predefined charset
 	length := args.Length
 	if length <= 0 {
-		length = 10 // Default length
+		length = defaultStringLength // Default length
 	} else if length > maxRandomStringLength {
 		log.Printf("Requested length %d exceeds maximum allowed length %d", length, maxRandomStringLength)
 		return fmt.Errorf("requested length %d exceeds maximum allowed length %d", length, maxRandomStringLength)
@@ -72,8 +94,9 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 		return fmt.Errorf("failed to generate random string: %w", err)
 	}
 
+	// Map the random bytes to the charset
 	for i := range b {
-		b[i] = charset[int(b[i])%len(charset)]
+		b[i] = randomStringCharset[int(b[i])%len(randomStringCharset)]
 	}
 
 	reply.Result = string(b)
@@ -124,11 +147,43 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 
 	r.ServiceMethod = request.Method
 
-	// Extract ID (not critical for our implementation)
+	// Extract and validate ID field - critical for matching requests and responses in JSON-RPC
 	if len(request.ID) > 0 {
-		if err := json.Unmarshal(request.ID, &r.Seq); err != nil {
+		// Try to unmarshal as different types, as JSON-RPC 2.0 allows string, number, or null
+		var idNum float64
+		var idStr string
+
+		// First try as number
+		if err := json.Unmarshal(request.ID, &idNum); err == nil {
+			// Validate the number is positive (for uint64)
+			if idNum < 0 {
+				log.Printf("Warning: Received negative ID value %f, using 0 instead", idNum)
+				r.Seq = 0
+			} else if idNum > float64(^uint64(0)) {
+				log.Printf("Warning: ID value %f too large for uint64, using 0 instead", idNum)
+				r.Seq = 0
+			} else {
+				r.Seq = uint64(idNum)
+			}
+		} else if err := json.Unmarshal(request.ID, &idStr); err == nil {
+			// Try as string - convert to integer if possible, or hash it
+			if intVal, err := strconv.ParseUint(idStr, 10, 64); err == nil {
+				r.Seq = intVal
+			} else {
+				// Use a hash of the string as ID
+				h := fnv.New64()
+				h.Write([]byte(idStr))
+				r.Seq = h.Sum64()
+				log.Printf("Converting string ID '%s' to hash: %d", idStr, r.Seq)
+			}
+		} else {
+			log.Printf("Warning: Failed to parse ID field: %v, using 0", err)
 			r.Seq = 0
 		}
+	} else {
+		// Empty ID or null ID (for notifications)
+		r.Seq = 0
+		log.Printf("Request has no ID (notification or empty ID)")
 	}
 
 	// Store params for ReadRequestBody
@@ -158,7 +213,7 @@ func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error
 		Result  interface{}  `json:"result,omitempty"`
 		Error   *interface{} `json:"error,omitempty"`
 	}{
-		JSONRPC: "2.0",
+		JSONRPC: jsonRPCVersion,
 		ID:      r.Seq,
 	}
 
@@ -186,8 +241,7 @@ func (c *LoggingServerCodec) Close() error {
 
 func main() {
 	// Add logging setup to log to a file in the same directory as the binary
-	constLogFile := "mcp-server.log"
-	logFile, err := os.OpenFile(constLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
@@ -214,9 +268,9 @@ func main() {
 	service.Initialize(&InitArgs{}, &initResponse)
 
 	initJSON, err := json.Marshal(map[string]interface{}{
-		"jsonrpc": "2.0",
+		"jsonrpc": jsonRPCVersion,
 		"result":  initResponse,
-		"id":      0,
+		"id":      initMsgID,
 	})
 	if err != nil {
 		log.Fatalf("Error marshaling initialization response: %v", err)
@@ -267,9 +321,9 @@ func main() {
 		log.Printf("Received signal: %v, shutting down server...", sig)
 		// Send shutdown message to stdout
 		shutdownMsg, err := json.Marshal(map[string]interface{}{
-			"jsonrpc": "2.0",
+			"jsonrpc": jsonRPCVersion,
 			"result":  map[string]string{"status": "shutting_down"},
-			"id":      999,
+			"id":      shutdownMsgID,
 		})
 		if err != nil {
 			log.Printf("Error marshaling shutdown message: %v", err)
@@ -278,7 +332,7 @@ func main() {
 		}
 
 		// Give some time for cleanup
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(shutdownDelay)
 		os.Exit(0)
 	case <-done:
 		log.Println("RPC server stopped normally")
