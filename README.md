@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) Implementation in Go
 
-This project demonstrates an implementation of the Model Context Protocol (MCP) in Go, showcasing how clients can communicate with a server over standardized JSON-RPC interfaces. It provides a clean, educational example of client-server communication using Go's powerful concurrency features and robust error handling.
+This project demonstrates an implementation of the Model Context Protocol (MCP) in Go, showcasing how clients can communicate with a server over standardized JSON-RPC interfaces, without using third party libraries.
 
 ## Project Overview
 
@@ -48,14 +48,14 @@ mcp/
 
 The MCP server is a Go application that:
 
-1. Initializes and exposes capabilities via JSON-RPC
+1. Initializes and exposes capabilities via JSON-RPC over stdio
 2. Listens for incoming requests on stdin
 3. Processes requests and returns responses on stdout
 4. Handles proper initialization and shutdown
 
 ### Server Capabilities
 
-Currently, the server implements the following capabilities:
+As an example, the server implements the following capabilitie:
 
 - **RandomString**: Generates cryptographically secure random strings with configurable length
 - More capabilities can be easily added by extending the `MCPService` struct
@@ -95,7 +95,15 @@ The MCP client is a Go application that can be used to test the server:
 
 ### Prerequisites
 
-- Go 1.16 or later
+- Go 1.18 or later
+
+### Makefile Build
+
+- cd to top level project directory
+- make build  
+  - builds both executables
+- make clean
+  - removes binaries
 
 ### Building the Server
 
@@ -117,7 +125,7 @@ go build -o mcp-client .
 ./mcp-client
 ```
 
-With a custom server path:
+With an optional custom server path. The default is ../bin/mcp-server, if you are running the client from its location in the project.
 
 ```bash
 ./mcp-client -server /path/to/custom/mcp-server

@@ -62,10 +62,10 @@ type RPCRequest struct {
 // RPCResponse represents a JSON-RPC response received from the server
 // Following the JSON-RPC 2.0 specification
 type RPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`       // Must be "2.0" for JSON-RPC 2.0
-	Result  json.RawMessage `json:"result"`        // Raw JSON result, to be unmarshaled by the caller
+	JSONRPC string          `json:"jsonrpc"`         // Must be "2.0" for JSON-RPC 2.0
+	Result  json.RawMessage `json:"result"`          // Raw JSON result, to be unmarshaled by the caller
 	Error   *RPCError       `json:"error,omitempty"` // Error, if any
-	ID      int             `json:"id"`            // Response ID, should match the request ID
+	ID      int             `json:"id"`              // Response ID, should match the request ID
 }
 
 // RPCError represents a JSON-RPC error object in a response
@@ -91,12 +91,13 @@ type RandomStringResponse struct {
 // It manages a connection to an MCP server subprocess and provides methods
 // to communicate with it via JSON-RPC over stdin/stdout
 type MCPClient struct {
-	cmd       *exec.Cmd     // The server subprocess
+	cmd       *exec.Cmd      // The server subprocess
 	stdin     io.WriteCloser // Pipe to server's stdin for sending requests
 	stdout    *bufio.Reader  // Buffered reader for server's stdout for reading responses
-	nextID    int           // Counter for generating unique request IDs
-	mutex     sync.Mutex    // Mutex to protect nextID when multiple goroutines make requests
-	serverCap []string      // Server capabilities cached from initialization
+	nextID    int            // Counter for generating unique request IDs
+	mutex     sync.Mutex     // Mutex to protect nextID when multiple goroutines make requests
+	serverCap []string       // Server capabilities cached from initialization
+	logger    *log.Logger    // Logger for debug messages
 }
 
 // NewMCPClient creates a new MCP client and starts the server process
@@ -133,6 +134,7 @@ func NewMCPClient(serverPath string) (*MCPClient, error) {
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout), // Buffered reader for better performance
 		nextID: initialRequestID,        // Start with initial request ID
+		logger: log.New(os.Stdout, "DEBUG - ", log.Ldate|log.Ltime),
 	}, nil
 }
 
@@ -146,7 +148,7 @@ func (c *MCPClient) Close() error {
 	if c.stdin != nil {
 		if err := c.stdin.Close(); err != nil {
 			// Log but continue with shutdown - don't return yet as we still need to clean up
-			fmt.Fprintf(os.Stderr, "Error closing stdin: %v\n", err)
+			c.logger.Printf("Error closing stdin: %v", err)
 		}
 	}
 
@@ -169,7 +171,7 @@ func (c *MCPClient) Close() error {
 			if err != nil {
 				// Process exited with an error
 				if exitErr, ok := err.(*exec.ExitError); ok {
-					fmt.Fprintf(os.Stderr, "Server process exited with status: %v\n", exitErr.ExitCode())
+					c.logger.Printf("Server process exited with status: %v", exitErr.ExitCode())
 				}
 				return fmt.Errorf("server terminated with error: %w", err)
 			}
@@ -177,7 +179,7 @@ func (c *MCPClient) Close() error {
 			return nil
 		case <-time.After(shutdownTimeoutDuration):
 			// Process didn't exit within timeout, force kill
-			fmt.Fprintf(os.Stderr, "Server didn't exit within timeout, forcing termination\n")
+			c.logger.Println("Server didn't exit within timeout, forcing termination")
 			if err := c.cmd.Process.Kill(); err != nil {
 				return fmt.Errorf("failed to kill server process: %w", err)
 			}
@@ -248,7 +250,7 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 	}
 
 	// Debug output
-	fmt.Fprintf(os.Stderr, "DEBUG - Sending request: %s\n", string(reqBytes))
+	c.logger.Printf("Sending request: %s", string(reqBytes))
 
 	// Send the request to the server via stdin
 	// We append a newline to separate JSON objects in the stream
@@ -263,7 +265,7 @@ func (c *MCPClient) Call(method string, params interface{}, result interface{}) 
 	}
 
 	// Debug output
-	fmt.Fprintf(os.Stderr, "DEBUG - Received response: %+v\n", rpcResp)
+	c.logger.Printf("Received response: %+v", rpcResp)
 
 	// Validate the response ID matches the request ID
 	// This is crucial for ensuring we're processing the correct response
@@ -325,14 +327,14 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 			if result.err == io.EOF {
 				return fmt.Errorf("server process terminated unexpectedly (EOF received)")
 			}
-			
+
 			// Check for other connection-related errors
 			// These often indicate that the server process died or was killed
 			if strings.Contains(result.err.Error(), "closed") ||
 				strings.Contains(result.err.Error(), "broken pipe") {
 				return fmt.Errorf("connection to server closed unexpectedly: %w", result.err)
 			}
-			
+
 			// General error case for any other read errors
 			return fmt.Errorf("failed to read from stdout: %w", result.err)
 		}
@@ -344,7 +346,7 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 		}
 
 		return nil
-		
+
 	case <-time.After(readTimeout):
 		// Timeout case - this prevents the client from hanging indefinitely
 		// if the server is unresponsive
@@ -355,7 +357,7 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 // RandomString calls the RandomString method on the MCP server
 // This is a convenience wrapper around the Call method for the RandomString capability
 // It handles creating the arguments and parsing the result
-// 
+//
 // Parameters:
 //   - length: the desired length of the random string
 //
@@ -364,7 +366,7 @@ func (c *MCPClient) readResponse(resp *RPCResponse) error {
 func (c *MCPClient) RandomString(length int) (string, error) {
 	// Create the arguments for the RandomString method
 	args := RandomStringArgs{Length: length}
-	
+
 	// Prepare a struct to receive the result
 	var result RandomStringResponse
 
@@ -444,17 +446,17 @@ func main() {
 	// This demonstrates checking for a capability before using it
 	if client.HasCapability("RandomString") {
 		fmt.Println("\nTesting RandomString capability:")
-		
+
 		// Call the RandomString method with our default length
 		randomStr, err := client.RandomString(defaultRandomStringLength)
 		if err != nil {
 			log.Fatalf("Failed to call RandomString: %v", err)
 		}
-		
+
 		// Display the result
-		fmt.Printf("  Random string (%d chars): %s\n", defaultRandomStringLength, randomStr)
+		client.logger.Printf("Random string (%d chars): %s", defaultRandomStringLength, randomStr)
 	}
-	
+
 	// The client will be automatically closed by the defer statement above
 	// This ensures proper cleanup even if there's a panic or early return
 }

@@ -14,41 +14,41 @@
 package main
 
 import (
-	"crypto/rand"       // For secure random generation
-	"encoding/json"     // For JSON encoding/decoding
-	"fmt"               // For formatted I/O
-	"hash/fnv"          // For hashing string IDs
-	"io"                // For I/O interfaces
-	"log"               // For logging
-	"net/rpc"           // For RPC server implementation
-	"os"                // For system calls
-	"os/signal"         // For signal handling
-	"strconv"           // For string conversions
-	"strings"           // For string manipulation
-	"syscall"           // For system call constants
-	"time"              // For timeouts and delays
+	"crypto/rand"   // For secure random generation
+	"encoding/json" // For JSON encoding/decoding
+	"fmt"           // For formatted I/O
+	"hash/fnv"      // For hashing string IDs
+	"io"            // For I/O interfaces
+	"log"           // For logging
+	"net/rpc"       // For RPC server implementation
+	"os"            // For system calls
+	"os/signal"     // For signal handling
+	"strconv"       // For string conversions
+	"strings"       // For string manipulation
+	"syscall"       // For system call constants
+	"time"          // For timeouts and delays
 )
 
 // Constants for server configuration and behavior
 // Centralizing these values makes the code more maintainable and configurable
 const (
 	// Service information
-	serviceName    = "Go MCP Server"    // Name of the MCP server
-	serviceVersion = "1.0.0"            // Version of the MCP server implementation
-	
+	serviceName    = "Go MCP Server" // Name of the MCP server
+	serviceVersion = "1.0.0"         // Version of the MCP server implementation
+
 	// File paths
-	logFilePath = "mcp-server.log"      // Path to the log file
-	
+	logFilePath = "mcp-server.log" // Path to the log file
+
 	// Random string generation
-	maxRandomStringLength = 1024        // Maximum allowed random string length for security
-	defaultStringLength   = 10          // Default length if not specified
+	maxRandomStringLength = 1024                                                             // Maximum allowed random string length for security
+	defaultStringLength   = 10                                                               // Default length if not specified
 	randomStringCharset   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" // Character set for random strings
-	
+
 	// JSON-RPC constants
-	jsonRPCVersion = "2.0"              // JSON-RPC 2.0 version string
-	shutdownMsgID  = 999                // ID used for shutdown messages
-	initMsgID      = 0                  // ID used for initialization messages
-	
+	jsonRPCVersion = "2.0" // JSON-RPC 2.0 version string
+	shutdownMsgID  = 999   // ID used for shutdown messages
+	initMsgID      = 0     // ID used for initialization messages
+
 	// Timeouts and delays
 	shutdownDelay = 500 * time.Millisecond // Time to wait before forcing shutdown
 )
@@ -93,7 +93,7 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 	// Log that the server was initialized - good for debugging
 	log.Println("MCP Server initialized")
 	log.Println("Initialize method called")
-	
+
 	// Populate the response with server information
 	*reply = InitResponse{
 		Name:    serviceName,    // Server name from constants
@@ -111,31 +111,30 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 // rejection sampling to ensure unbiased results
 func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringResponse) error {
 	// Log the request details for debugging
-	log.Printf("Generating random string of length %d", args.Length)
 	log.Printf("RandomString method called with length: %d", args.Length)
-	
+
 	// Validate and normalize the length parameter
 	length := args.Length
 	if length <= 0 {
 		// Use default length if not specified or invalid
-		length = defaultStringLength 
+		length = defaultStringLength
 		log.Printf("Using default length of %d", defaultStringLength)
 	} else if length > maxRandomStringLength {
 		// Enforce maximum length for security reasons
 		// This prevents potential DoS attacks requesting massive strings
-		log.Printf("Requested length %d exceeds maximum allowed length %d", 
+		log.Printf("Requested length %d exceeds maximum allowed length %d",
 			length, maxRandomStringLength)
-		return fmt.Errorf("requested length %d exceeds maximum allowed length %d", 
+		return fmt.Errorf("requested length %d exceeds maximum allowed length %d",
 			length, maxRandomStringLength)
 	}
 
 	// Prepare result buffer to hold the random string
 	result := make([]byte, length)
-	
+
 	// Implement rejection sampling for unbiased random generation
 	// This is important for cryptographically secure random strings
 	// where uniform distribution is required
-	
+
 	// Calculate the largest byte value that won't cause bias
 	// We want random bytes in range [0, unbiased). Any value >= unbiased is rejected.
 	charsetLen := len(randomStringCharset)
@@ -152,7 +151,7 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 			if err != nil {
 				return fmt.Errorf("failed to generate random string: %w", err)
 			}
-			
+
 			// Reject if the value would cause bias (not uniformly distributed)
 			if randomBuf[0] < byte(unbiased) {
 				// No bias - use this byte to select a character
@@ -165,6 +164,7 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 
 	// Set the result and return
 	reply.Result = string(result)
+	log.Print("Generated random string: ", reply.Result)
 	return nil
 }
 
@@ -172,10 +172,10 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 // This implements the rpc.ServerCodec interface to handle JSON-RPC over stdio
 // with additional logging for debugging purposes
 type LoggingServerCodec struct {
-	decoder *json.Decoder     // For decoding incoming JSON requests
-	encoder *json.Encoder     // For encoding outgoing JSON responses
+	decoder *json.Decoder      // For decoding incoming JSON requests
+	encoder *json.Encoder      // For encoding outgoing JSON responses
 	conn    io.ReadWriteCloser // The underlying connection (stdin/stdout)
-	
+
 	// Store the last parsed request params for passing between methods
 	requestParams json.RawMessage
 }
@@ -187,7 +187,7 @@ func NewLoggingServerCodec(conn io.ReadWriteCloser) *LoggingServerCodec {
 	return &LoggingServerCodec{
 		decoder: json.NewDecoder(conn), // Create a decoder for incoming JSON
 		encoder: json.NewEncoder(conn), // Create an encoder for outgoing JSON
-		conn:    conn,                 // Store the connection for closing later
+		conn:    conn,                  // Store the connection for closing later
 	}
 }
 
@@ -293,8 +293,8 @@ func (c *LoggingServerCodec) ReadRequestBody(x interface{}) error {
 func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error {
 	// Create a struct that matches the JSON-RPC 2.0 response format
 	resp := struct {
-		JSONRPC string       `json:"jsonrpc"`      // Always "2.0" for JSON-RPC 2.0
-		ID      uint64       `json:"id"`           // Must match the request ID
+		JSONRPC string       `json:"jsonrpc"`          // Always "2.0" for JSON-RPC 2.0
+		ID      uint64       `json:"id"`               // Must match the request ID
 		Result  interface{}  `json:"result,omitempty"` // Result (if no error)
 		Error   *interface{} `json:"error,omitempty"`  // Error (if any)
 	}{
@@ -341,7 +341,7 @@ func main() {
 		// If we can't open the log file, we log to stderr and exit
 		log.Fatalf("Failed to open log file: %v", err)
 	}
-	defer logFile.Close() // Ensure we close the log file when the program exits
+	defer logFile.Close()  // Ensure we close the log file when the program exits
 	log.SetOutput(logFile) // Redirect all log output to the file
 	log.Println("MCP Server log initialized")
 
@@ -376,7 +376,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error marshaling initialization response: %v", err)
 	}
-	
+
 	// Send the init JSON to stdout (to the client)
 	fmt.Println(string(initJSON))
 
@@ -418,6 +418,11 @@ func main() {
 				log.Printf("ERROR serving request: %v", err)
 				if err == io.EOF || err == io.ErrUnexpectedEOF {
 					// EOF means the client has closed the connection
+					if err == io.EOF {
+						log.Println("Client disconnected (EOF), stopping server")
+					} else {
+						log.Println("Client disconnected (unexpected EOF), stopping server")
+					}
 					break
 				}
 			}
@@ -431,7 +436,7 @@ func main() {
 	case sig := <-sigChan:
 		// We received a termination signal (e.g., Ctrl+C)
 		log.Printf("Received signal: %v, shutting down server...", sig)
-		
+
 		// Send a graceful shutdown message to the client
 		shutdownMsg, err := json.Marshal(map[string]interface{}{
 			"jsonrpc": jsonRPCVersion,
@@ -449,7 +454,7 @@ func main() {
 		log.Printf("Waiting %v for cleanup before exiting", shutdownDelay)
 		time.Sleep(shutdownDelay)
 		os.Exit(0)
-		
+
 	case <-done:
 		// The serve loop has stopped (client disconnected)
 		log.Println("RPC server stopped normally (client disconnected)")
