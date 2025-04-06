@@ -124,6 +124,8 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 			"RandomString", // List of capabilities this server supports
 		},
 	}
+	
+	log.Printf("Sending initialize response: %+v", *reply)
 	return nil
 }
 
@@ -197,7 +199,7 @@ func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringRes
 
 	// Set the result and return
 	reply.Result = string(result)
-	log.Print("Generated random string: ", reply.Result)
+	log.Printf("Generated random string: %s", reply.Result)
 	return nil
 }
 
@@ -249,7 +251,7 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 	// This ensures the method can be properly dispatched to the right service
 	parts := strings.Split(request.Method, ".")
 	if len(parts) != 2 {
-		log.Printf("invalid method name: %s", request.Method)
+		log.Printf("Method name format: %s", request.Method)
 	}
 
 	// Map simple method names to fully qualified service methods if needed
@@ -259,6 +261,8 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 		r.ServiceMethod = "MCPService.Initialize"
 	case "initialized":
 		r.ServiceMethod = "MCPService.Initialized"
+	case "RandomString":
+		r.ServiceMethod = "MCPService.RandomString"
 	// Add other mappings if necessary
 	default:
 		r.ServiceMethod = request.Method // Assume fully qualified if not mapped
@@ -343,6 +347,13 @@ func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error
 	}{
 		JSONRPC: jsonRPCVersion, // From constants
 		ID:      r.Seq,          // Match the request ID
+	}
+
+	// Special handling for notifications (like 'initialized')
+	// For notifications, we don't send a response
+	if r.ServiceMethod == "MCPService.Initialized" && r.Seq == 0 {
+		log.Printf("DEBUG: Skipping response for notification: %s", r.ServiceMethod)
+		return nil
 	}
 
 	// Set either Result or Error based on the response
