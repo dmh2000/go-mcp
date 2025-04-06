@@ -1,0 +1,17 @@
+{
+    "inputs": [
+        {
+            "type": "promptString",
+            "id": "mcp-server",
+            "description": "Enter the MCP server address",
+            "default": "stdio"
+        }
+    ],
+    "servers": {
+        "my-mcp-server-81781d07": {
+            "type": "stdio",
+            "command": "/home/dmh2000/projects/mcp/bin/mcp-server",
+            "args": []
+        }
+    }
+}

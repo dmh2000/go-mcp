@@ -44,6 +44,33 @@ mcp/
     └── Makefile        # Build instructions for server
 ```
 
+## Model Context Protocol 
+
+### Workflow
+An MCP-capable client acts as a bridge between an LLM and an MCP server. Here’s how this workflow typically functions:
+
+- Client-Server Interaction: The MCP client connects to the MCP server to access its capabilities, such as tools, resources, or prompts. These capabilities can include querying databases, accessing APIs, or retrieving structured data.
+
+- LLM Context Integration: When the LLM processes a request and determines it needs external data or tools, it communicates with the MCP client embedded in its host application. The client forwards the request to the MCP server, retrieves the response, and integrates this information into the LLM's context.
+
+- LLM Isolation: The LLM itself does not directly access the MCP server. Instead, it relies on the MCP client to handle communication with the server and manage responses. This design ensures modularity and security by isolating the LLM from direct server interactions.
+
+- Workflow Example: For instance, if a user asks an LLM about weather data, the LLM identifies it needs real-time information from an external source. The MCP client sends a request to the MCP server for weather data, retrieves the result, and injects it into the LLM's context . It is up to the MCP client to analyze a request for data from the LLM and convert that to a request to the appropriate MCP server. Typically the client prompts will inform the LLM of the available MCP resources and ask for results in some form, such as free-flow or JSON. 
+
+```text
+Available tools: get_forecast(lat, lon), get_alerts(state)
+Respond with JSON: {"tool": "get_forecast", "params": {...}}
+```
+
+### Client - Server Connection
+An MCP client can connect to an MCP server by either of two methods:
+- STDIO transport
+  - This is the default transport mechanism that uses standard input/output streams for communication. The server must be an executable on the local machine where the client can access it. The client will start the server as a subprocess and use an STDIO connection to communicate with the server.
+- HTTP Stream
+  - This transport implements streamable HTTP for network-based communication and is compliant with the latest MCP specifications.
+
+This implementation uses the default STDIO transport. 
+
 ## MCP Server
 
 The MCP server is a Go application that:
@@ -209,3 +236,6 @@ if client.HasCapability("RandomString") {
 ---
 
 This project serves as both a functional implementation and an educational resource for understanding client-server communication patterns, JSON-RPC, and Go's concurrency features.
+
+
+
