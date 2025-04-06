@@ -69,7 +69,7 @@ Currently, the server implements the following capabilities:
 
 ## MCP Client
 
-The MCP client is a Go application that:
+The MCP client is a Go application that can be used to test the server:
 
 1. Launches the MCP server as a subprocess
 2. Communicates with the server over stdin/stdout pipes
