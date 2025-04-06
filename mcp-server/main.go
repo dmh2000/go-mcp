@@ -1,11 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/rpc"
 	"os"
 	"os/signal"
@@ -13,6 +13,9 @@ import (
 	"syscall"
 	"time"
 )
+
+// Maximum length for generated random strings
+const maxRandomStringLength = 1024
 
 // MCPService represents the Model Context Protocol service
 type MCPService struct{}
@@ -38,7 +41,7 @@ type RandomStringResponse struct {
 
 // Initialize returns information about the MCP server and its capabilities
 func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
-	fmt.Fprintf(os.Stderr, "MCP Server initialized\n")
+	log.Println("MCP Server initialized")
 	log.Println("Initialize method called")
 	*reply = InitResponse{
 		Name:    "Go MCP Server",
@@ -52,18 +55,25 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 
 // RandomString generates and returns a random string of specified length
 func (s *MCPService) RandomString(args *RandomStringArgs, reply *RandomStringResponse) error {
-	fmt.Fprintf(os.Stderr, "Generating random string of length %d\n", args.Length)
+	log.Printf("Generating random string of length %d", args.Length)
 	log.Printf("RandomString method called with length: %d", args.Length)
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	length := args.Length
 	if length <= 0 {
 		length = 10 // Default length
+	} else if length > maxRandomStringLength {
+		log.Printf("Requested length %d exceeds maximum allowed length %d", length, maxRandomStringLength)
+		return fmt.Errorf("requested length %d exceeds maximum allowed length %d", length, maxRandomStringLength)
 	}
 
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 	b := make([]byte, length)
+	_, err := rand.Read(b)
+	if err != nil {
+		return fmt.Errorf("failed to generate random string: %w", err)
+	}
+
 	for i := range b {
-		b[i] = charset[seededRand.Intn(len(charset))]
+		b[i] = charset[int(b[i])%len(charset)]
 	}
 
 	reply.Result = string(b)
@@ -103,9 +113,7 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 	}
 
 	// Log the request details
-	fmt.Fprintf(os.Stderr, "DEBUG: Received request: method=%s, params=%s\n",
-		request.Method, string(request.Params))
-	log.Printf("Received request: method=%s, params=%s",
+	log.Printf("DEBUG: Received request: method=%s, params=%s",
 		request.Method, string(request.Params))
 
 	// Split the method name (e.g., "MCPService.RandomString" -> "MCPService", "RandomString")
@@ -136,7 +144,7 @@ func (c *LoggingServerCodec) ReadRequestBody(x interface{}) error {
 	}
 
 	// Log the raw JSON being unmarshaled
-	fmt.Fprintf(os.Stderr, "DEBUG: Trying to unmarshal params: %s\n", string(c.requestParams))
+	log.Printf("DEBUG: Trying to unmarshal params: %s", string(c.requestParams))
 
 	// Unmarshal the raw JSON into the target
 	return json.Unmarshal(c.requestParams, x)
@@ -162,9 +170,11 @@ func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error
 	}
 
 	// Log the response
-	respJSON, _ := json.Marshal(resp)
-	fmt.Fprintf(os.Stderr, "DEBUG: Sending response: %s\n", string(respJSON))
-	log.Printf("Sending response: %s", string(respJSON))
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		return fmt.Errorf("error marshaling response: %w", err)
+	}
+	log.Printf("DEBUG: Sending response: %s", string(respJSON))
 
 	return c.encoder.Encode(resp)
 }
@@ -176,7 +186,8 @@ func (c *LoggingServerCodec) Close() error {
 
 func main() {
 	// Add logging setup to log to a file in the same directory as the binary
-	logFile, err := os.OpenFile("mcp-server.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	constLogFile := "mcp-server.log"
+	logFile, err := os.OpenFile(constLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalf("Failed to open log file: %v", err)
 	}
@@ -199,13 +210,9 @@ func main() {
 	log.Println("MCP Server starting, using stdio for communication")
 
 	// Send initialization response to stdout
-	initResponse := InitResponse{
-		Name:    "Go MCP Server",
-		Version: "1.0.0",
-		Capabilities: []string{
-			"RandomString",
-		},
-	}
+	var initResponse InitResponse
+	service.Initialize(&InitArgs{}, &initResponse)
+
 	initJSON, err := json.Marshal(map[string]interface{}{
 		"jsonrpc": "2.0",
 		"result":  initResponse,
@@ -234,20 +241,18 @@ func main() {
 	codec := NewLoggingServerCodec(rw)
 
 	// Log codec creation
-	log.Println("Custom JSON-RPC codec created, waiting for client requests")
-	fmt.Fprintf(os.Stderr, "DEBUG: Custom JSON-RPC codec created, waiting for client requests\n")
+	log.Println("DEBUG: Custom JSON-RPC codec created, waiting for client requests")
 
 	// Create a channel to signal when to stop serving
 	done := make(chan struct{})
 
 	// Start serving in a goroutine
 	go func() {
-		fmt.Fprintf(os.Stderr, "DEBUG: Starting to serve requests\n")
+		log.Println("DEBUG: Starting to serve requests")
 		for {
 			err := rpc.ServeRequest(codec)
 			if err != nil {
 				log.Printf("ERROR serving request: %v", err)
-				fmt.Fprintf(os.Stderr, "DEBUG: Error serving request: %v\n", err)
 				if err == io.EOF || err == io.ErrUnexpectedEOF {
 					break
 				}
@@ -260,14 +265,17 @@ func main() {
 	select {
 	case sig := <-sigChan:
 		log.Printf("Received signal: %v, shutting down server...", sig)
-		fmt.Fprintf(os.Stderr, "Shutting down MCP Server...\n")
 		// Send shutdown message to stdout
-		shutdownMsg, _ := json.Marshal(map[string]interface{}{
+		shutdownMsg, err := json.Marshal(map[string]interface{}{
 			"jsonrpc": "2.0",
 			"result":  map[string]string{"status": "shutting_down"},
 			"id":      999,
 		})
-		fmt.Println(string(shutdownMsg))
+		if err != nil {
+			log.Printf("Error marshaling shutdown message: %v", err)
+		} else {
+			fmt.Println(string(shutdownMsg))
+		}
 
 		// Give some time for cleanup
 		time.Sleep(500 * time.Millisecond)
