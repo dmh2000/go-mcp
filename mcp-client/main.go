@@ -197,15 +197,35 @@ func (c *MCPClient) Initialize() (*InitResponse, error) {
 	// Send an initialize request to the server
 	c.logger.Printf("Sending initialize request to server")
 	
-	// Create empty initialize args - the server doesn't need any parameters
-	initArgs := struct{}{}
+	// Create initialize args with client info
+	initArgs := struct {
+		ClientInfo struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"clientInfo"`
+	}{
+		ClientInfo: struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		}{
+			Name:    "MCP Test Client",
+			Version: "1.0.0",
+		},
+	}
 	
 	// Prepare a struct to receive the result
 	var initResp InitResponse
 	
 	// Make the RPC call to initialize the server
-	if err := c.Call("MCPService.Initialize", initArgs, &initResp); err != nil {
+	if err := c.Call("initialize", initArgs, &initResp); err != nil {
 		return nil, fmt.Errorf("failed to initialize server: %w", err)
+	}
+	
+	// Send initialized notification
+	c.logger.Printf("Sending initialized notification to server")
+	if err := c.Call("initialized", struct{}{}, nil); err != nil {
+		c.logger.Printf("Warning: failed to send initialized notification: %v", err)
+		// Continue anyway, this is just a notification
 	}
 	
 	// Store server capabilities for later reference

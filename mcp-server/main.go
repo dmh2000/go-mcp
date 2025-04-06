@@ -338,6 +338,13 @@ func (c *LoggingServerCodec) ReadRequestBody(x interface{}) error {
 // This is part of the rpc.ServerCodec interface implementation
 // It takes the RPC response and encodes it as a JSON-RPC 2.0 response
 func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error {
+	// Special handling for notifications (like 'initialized')
+	// For notifications, we don't send a response
+	if r.ServiceMethod == "MCPService.Initialized" && r.Seq == 0 {
+		log.Printf("DEBUG: Skipping response for notification: %s", r.ServiceMethod)
+		return nil
+	}
+
 	// Create a struct that matches the JSON-RPC 2.0 response format
 	resp := struct {
 		JSONRPC string       `json:"jsonrpc"`          // Always "2.0" for JSON-RPC 2.0
@@ -347,13 +354,6 @@ func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error
 	}{
 		JSONRPC: jsonRPCVersion, // From constants
 		ID:      r.Seq,          // Match the request ID
-	}
-
-	// Special handling for notifications (like 'initialized')
-	// For notifications, we don't send a response
-	if r.ServiceMethod == "MCPService.Initialized" && r.Seq == 0 {
-		log.Printf("DEBUG: Skipping response for notification: %s", r.ServiceMethod)
-		return nil
 	}
 
 	// Set either Result or Error based on the response
