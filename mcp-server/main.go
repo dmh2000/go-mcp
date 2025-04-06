@@ -63,10 +63,21 @@ type MCPService struct{}
 // Initialization related types
 // These are used during the initial handshake between client and server
 
+// ClientInfo represents information about the client application
+type ClientInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+}
+
 // InitArgs contains arguments for the Initialize method
-// This is empty in this implementation as no arguments are needed,
-// but in a real implementation it could contain client information
-type InitArgs struct{}
+// Based on LSP InitializeParams structure
+type InitArgs struct {
+	ProcessID    *int        `json:"processId,omitempty"` // Pointer allows null
+	ClientInfo   *ClientInfo `json:"clientInfo,omitempty"`
+	RootURI      *string     `json:"rootUri,omitempty"`      // Pointer allows null/omitted
+	Capabilities interface{} `json:"capabilities,omitempty"` // Keep generic for now
+	// Add other fields like workspaceFolders, trace, etc. as needed
+}
 
 // InitResponse contains the server information sent during initialization
 // This is the first message sent to clients and includes server capabilities
@@ -88,13 +99,22 @@ type RandomStringResponse struct {
 	Result string `json:"result"` // The generated random string
 }
 
+// InitializedArgs contains arguments for the Initialized notification (typically none)
+type InitializedArgs struct{}
+
 // Initialize returns information about the MCP server and its capabilities
 // This is called by the client during initialization to get server information
 // It follows the net/rpc convention of taking args and reply pointers
 func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 	// Log that the server was initialized - good for debugging
-	log.Println("MCP Server initialized")
-	log.Println("Initialize method called")
+	// Log the received arguments (optional, for debugging)
+	log.Printf("Initialize method called with args: %+v", args)
+	if args.ClientInfo != nil {
+		log.Printf("Client Info: Name=%s, Version=%s", args.ClientInfo.Name, args.ClientInfo.Version)
+	}
+	if args.ProcessID != nil {
+		log.Printf("Client Process ID: %d", *args.ProcessID)
+	}
 
 	// Populate the response with server information
 	*reply = InitResponse{
@@ -104,6 +124,17 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 			"RandomString", // List of capabilities this server supports
 		},
 	}
+	return nil
+}
+
+// Initialized handles the notification from the client that initialization is complete
+// It doesn't take meaningful arguments or return a result (it's a notification)
+func (s *MCPService) Initialized(args *InitializedArgs, reply *struct{}) error {
+	// A reply struct is needed for net/rpc, but it won't be sent for notifications.
+	// The reply parameter itself should be nil or an empty struct pointer.
+	log.Println("Received 'initialized' notification from client.")
+	// Here you could set a flag or channel to indicate the server can now
+	// proceed with operations that depend on the client being ready.
 	return nil
 }
 
@@ -221,11 +252,18 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 		log.Printf("invalid method name: %s", request.Method)
 	}
 
-	r.ServiceMethod = request.Method
-	if request.Method == "initialize" {
+	// Map simple method names to fully qualified service methods if needed
+	// This allows clients to send "initialize" instead of "MCPService.Initialize"
+	switch request.Method {
+	case "initialize":
 		r.ServiceMethod = "MCPService.Initialize"
+	case "initialized":
+		r.ServiceMethod = "MCPService.Initialized"
+	// Add other mappings if necessary
+	default:
+		r.ServiceMethod = request.Method // Assume fully qualified if not mapped
 	}
-	log.Printf("DEBUG: Service method set to: %s", r.ServiceMethod)
+	log.Printf("DEBUG: Service method mapped to: %s", r.ServiceMethod)
 
 	// Extract and validate ID field - critical for matching requests and responses
 	// JSON-RPC 2.0 allows IDs to be numbers, strings, or null
