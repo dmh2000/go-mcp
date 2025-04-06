@@ -190,28 +190,30 @@ func (c *MCPClient) Close() error {
 	return nil
 }
 
-// Initialize processes the initialization message from the server
+// Initialize sends an initialize request to the server and processes the response
 // This must be called after creating a new client and before making any RPC calls
-// It reads and parses the initialization message that contains server information and capabilities
+// It sends a request and reads the response that contains server information and capabilities
 func (c *MCPClient) Initialize() (*InitResponse, error) {
-	// Read the initialization message from the server
-	// The server automatically sends this message when it starts up
-	var rpcResp RPCResponse
-	if err := c.readResponse(&rpcResp); err != nil {
-		return nil, fmt.Errorf("failed to read initialization response: %w", err)
-	}
-
-	// Parse the initialization response
-	// The result field contains the server information in JSON format
+	// Send an initialize request to the server
+	c.logger.Printf("Sending initialize request to server")
+	
+	// Create empty initialize args - the server doesn't need any parameters
+	initArgs := struct{}{}
+	
+	// Prepare a struct to receive the result
 	var initResp InitResponse
-	if err := json.Unmarshal(rpcResp.Result, &initResp); err != nil {
-		return nil, fmt.Errorf("failed to parse initialization response: %w", err)
+	
+	// Make the RPC call to initialize the server
+	if err := c.Call("MCPService.Initialize", initArgs, &initResp); err != nil {
+		return nil, fmt.Errorf("failed to initialize server: %w", err)
 	}
-
+	
 	// Store server capabilities for later reference
 	// This allows us to check if a capability is available before calling it
 	c.serverCap = initResp.Capabilities
-
+	
+	c.logger.Printf("Server initialized successfully with capabilities: %v", c.serverCap)
+	
 	return &initResp, nil
 }
 

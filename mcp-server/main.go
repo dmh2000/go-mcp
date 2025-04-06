@@ -24,9 +24,11 @@ import (
 	"os"            // For system calls
 	"os/signal"     // For signal handling
 	"strconv"       // For string conversions
-	"strings"       // For string manipulation
-	"syscall"       // For system call constants
-	"time"          // For timeouts and delays
+	"strings"
+
+	// For string manipulation
+	"syscall" // For system call constants
+	"time"    // For timeouts and delays
 )
 
 // Constants for server configuration and behavior
@@ -216,11 +218,14 @@ func (c *LoggingServerCodec) ReadRequestHeader(r *rpc.Request) error {
 	// This ensures the method can be properly dispatched to the right service
 	parts := strings.Split(request.Method, ".")
 	if len(parts) != 2 {
-		return fmt.Errorf("invalid method name: %s", request.Method)
+		log.Printf("invalid method name: %s", request.Method)
 	}
 
-	// Set the service method in the RPC request
 	r.ServiceMethod = request.Method
+	if request.Method == "initialize" {
+		r.ServiceMethod = "MCPService.Initialize"
+	}
+	log.Printf("DEBUG: Service method set to: %s", r.ServiceMethod)
 
 	// Extract and validate ID field - critical for matching requests and responses
 	// JSON-RPC 2.0 allows IDs to be numbers, strings, or null
@@ -361,27 +366,15 @@ func main() {
 	// Log that we're starting the server
 	log.Println("MCP Server starting, using stdio for communication")
 
-	// Prepare and send the initialization response
-	// This is the first message sent to clients upon connection
-	// We send it before entering the main serve loop
-	var initResponse InitResponse
-	service.Initialize(&InitArgs{}, &initResponse)
+	// Remove the immediate initialization message sending.
+	// Instead, we'll let the client send an initialization request first
+	// and use the proper RPC mechanism to respond.
 
-	// Format the init response as a JSON-RPC message
-	initJSON, err := json.Marshal(map[string]interface{}{
-		"jsonrpc": jsonRPCVersion, // Always "2.0" for JSON-RPC 2.0
-		"result":  initResponse,   // The initialization information
-		"id":      initMsgID,      // ID 0 for the init message
-	})
-	if err != nil {
-		log.Fatalf("Error marshaling initialization response: %v", err)
-	}
+	// Log that we're waiting for client initialize request
+	log.Println("Server ready, waiting for client initialization request")
 
-	// Send the init JSON to stdout (to the client)
-	fmt.Println(string(initJSON))
-
-	// Log the initialization response for debugging
-	log.Printf("Initialization response: %+v\n", initResponse)
+	// The initialization response will be sent when the client
+	// makes the Initialize RPC call to the server
 
 	// Create a combined Reader/Writer/Closer for stdin/stdout communication
 	// This serves as the transport for our JSON-RPC server
