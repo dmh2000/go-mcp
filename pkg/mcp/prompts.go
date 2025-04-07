@@ -64,7 +64,6 @@ type Annotations struct {
 	Priority *float64 `json:"priority,omitempty"` // Use pointer for optional 0 value
 }
 
-
 // Method names for prompt operations.
 const (
 	MethodListPrompts = "prompts/list"
@@ -202,7 +201,6 @@ func UnmarshalListPromptsResponse(data []byte) (*ListPromptsResult, RequestID, *
 
 	return &result, resp.ID, nil, nil
 }
-
 
 // Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For PromptMessage.Content, further processing is needed after unmarshaling
