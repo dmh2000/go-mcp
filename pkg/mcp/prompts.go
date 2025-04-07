@@ -2,67 +2,8 @@ package mcp
 
 import (
 	"encoding/json"
-	"fmt"
+	"fmt" // Keep fmt for error formatting in functions
 )
-
-// JSONRPCVersion is the fixed JSON-RPC version string.
-// Note: Duplicated from resources.go, consider consolidating.
-const JSONRPCVersion = "2.0"
-
-// RequestID represents the ID field in a JSON-RPC request/response.
-// Note: Duplicated from resources.go, consider consolidating.
-type RequestID interface{}
-
-// RPCRequest defines the structure for a JSON-RPC request.
-// Note: Duplicated from resources.go, consider consolidating.
-type RPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-	ID      RequestID   `json:"id"`
-}
-
-// RPCResponse defines the structure for a JSON-RPC response.
-// Note: Duplicated from resources.go, consider consolidating.
-type RPCResponse struct {
-	JSONRPC string          `json:"jsonrpc"`
-	Result  json.RawMessage `json:"result,omitempty"`
-	Error   *RPCError       `json:"error,omitempty"`
-	ID      RequestID       `json:"id"`
-}
-
-// RPCError defines the structure for a JSON-RPC error object.
-// Note: Duplicated from resources.go, consider consolidating.
-type RPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// Error implements the error interface for RPCError.
-// Note: Duplicated from resources.go, consider consolidating.
-func (e *RPCError) Error() string {
-	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
-}
-
-// Role defines the sender or recipient of messages and data.
-// Note: Duplicated from resources.go, consider consolidating.
-type Role string
-
-// Note: Duplicated from resources.go, consider consolidating.
-const (
-	RoleAssistant Role = "assistant"
-	RoleUser      Role = "user"
-)
-
-// Annotations provide optional metadata for client interpretation.
-// Note: Duplicated from resources.go, consider consolidating.
-type Annotations struct {
-	// Audience describes the intended customer (e.g., "user", "assistant").
-	Audience []Role `json:"audience,omitempty"`
-	// Priority indicates importance (1=most important, 0=least important).
-	Priority *float64 `json:"priority,omitempty"` // Use pointer for optional 0 value
-}
 
 // Method names for prompt operations.
 const (
