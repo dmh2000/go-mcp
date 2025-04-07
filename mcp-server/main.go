@@ -149,15 +149,12 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 		Name:    serviceName,    // Server name from constants
 		Version: serviceVersion, // Server version from constants
 		Capabilities: ServerCapabilities{ // Populate the new capabilities structure
-			Tools: []ToolCapability{
+			Tools: []ToolCapability{},
+			Resources: []ResourceCapability{
 				{
 					Name:        "RandomString",
 					Description: "Generates a cryptographically secure random string of a specified length.",
 				},
-				// Add other tools here
-			},
-			Resources: []ResourceCapability{
-				// Add available resources here
 			},
 			Prompts: []PromptCapability{
 				// Add available prompts here
