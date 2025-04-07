@@ -1,6 +1,49 @@
 package mcp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// JSONRPCVersion is the fixed JSON-RPC version string.
+const JSONRPCVersion = "2.0"
+
+// Method names for resource operations.
+const (
+	MethodListResources = "resources/list"
+	MethodReadResource  = "resources/read" // Keep for consistency, even if not used yet
+)
+
+// RequestID represents the ID field in a JSON-RPC request/response, which can be a string or number.
+type RequestID interface{}
+
+// RPCRequest defines the structure for a JSON-RPC request.
+type RPCRequest struct {
+	JSONRPC string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+	ID      RequestID   `json:"id"`
+}
+
+// RPCResponse defines the structure for a JSON-RPC response.
+type RPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
+	ID      RequestID       `json:"id"`
+}
+
+// RPCError defines the structure for a JSON-RPC error object.
+type RPCError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// Error implements the error interface for RPCError.
+func (e *RPCError) Error() string {
+	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
+}
 
 // Role defines the sender or recipient of messages and data.
 type Role string
@@ -85,6 +128,57 @@ type ReadResourceResult struct {
 	Contents []json.RawMessage `json:"contents"`
 }
 
-// Note: Standard json.Marshal and json.Unmarshal can be used for these types.
+// MarshalListResourcesRequest creates a JSON-RPC request for the resources/list method.
+// The id can be a string or an integer. If params is nil, default empty params will be used.
+func MarshalListResourcesRequest(id RequestID, params *ListResourcesParams) ([]byte, error) {
+	// Use default empty params if nil is provided
+	var p interface{}
+	if params != nil {
+		p = params
+	} else {
+		p = struct{}{} // Empty object for params if none specified
+	}
+
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodListResources,
+		Params:  p,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalListResourcesResponse parses a JSON-RPC response for a resources/list request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+func UnmarshalListResourcesResponse(data []byte) (*ListResourcesResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present (it's optional in the RPCResponse struct)
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		// Handle cases where result might be legitimately null or empty if needed,
+		// otherwise, it might indicate an issue if a result was expected.
+		// For ListResources, we expect a result object.
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodListResources)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result ListResourcesResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal ListResourcesResult from response result: %w", err)
+	}
+
+	return &result, resp.ID, nil, nil
+}
+
+// Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For ReadResourceResult.Contents, further processing is needed after unmarshaling
 // to determine the concrete type (TextResourceContents or BlobResourceContents) of each element.
