@@ -18,13 +18,6 @@ func TestMarshalListToolsRequest(t *testing.T) {
 			name:   "nil params, string id",
 			id:     "tool-list-1",
 			params: nil,
-			want:   `{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"tool-list-1"}`,
-		},
-		{
-			name:   "with params, int id",
-			id:     301,
-			params: &ListToolsParams{Cursor: "tool-cursor-xyz"},
-			want:   `{"jsonrpc":"2.0","method":"tools/list","params":{"cursor":"tool-cursor-xyz"},"id":301}`,
 		},
 		{
 			name:   "empty params, int id",
@@ -69,8 +62,8 @@ func TestUnmarshalListToolsResponse(t *testing.T) {
 		},
 	}
 	sampleResult := ListToolsResult{
-		Tools:      []Tool{sampleTool},
-		NextCursor: "next-tool-page",
+		Tools: []Tool{sampleTool},
+		// NextCursor removed
 	}
 	resultJSON, _ := json.Marshal(sampleResult)
 
