@@ -1,6 +1,69 @@
 package mcp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
+
+// JSONRPCVersion is the fixed JSON-RPC version string.
+// Note: Duplicated from resources.go, consider consolidating.
+const JSONRPCVersion = "2.0"
+
+// RequestID represents the ID field in a JSON-RPC request/response.
+// Note: Duplicated from resources.go, consider consolidating.
+type RequestID interface{}
+
+// RPCRequest defines the structure for a JSON-RPC request.
+// Note: Duplicated from resources.go, consider consolidating.
+type RPCRequest struct {
+	JSONRPC string      `json:"jsonrpc"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+	ID      RequestID   `json:"id"`
+}
+
+// RPCResponse defines the structure for a JSON-RPC response.
+// Note: Duplicated from resources.go, consider consolidating.
+type RPCResponse struct {
+	JSONRPC string          `json:"jsonrpc"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *RPCError       `json:"error,omitempty"`
+	ID      RequestID       `json:"id"`
+}
+
+// RPCError defines the structure for a JSON-RPC error object.
+// Note: Duplicated from resources.go, consider consolidating.
+type RPCError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// Error implements the error interface for RPCError.
+// Note: Duplicated from resources.go, consider consolidating.
+func (e *RPCError) Error() string {
+	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
+}
+
+// Role defines the sender or recipient of messages and data.
+// Note: Duplicated from resources.go, consider consolidating.
+type Role string
+
+// Note: Duplicated from resources.go, consider consolidating.
+const (
+	RoleAssistant Role = "assistant"
+	RoleUser      Role = "user"
+)
+
+// Annotations provide optional metadata for client interpretation.
+// Note: Duplicated from resources.go, consider consolidating.
+type Annotations struct {
+	// Audience describes the intended customer (e.g., "user", "assistant").
+	Audience []Role `json:"audience,omitempty"`
+	// Priority indicates importance (1=most important, 0=least important).
+	Priority *float64 `json:"priority,omitempty"` // Use pointer for optional 0 value
+}
+
 
 // Method names for prompt operations.
 const (
@@ -91,6 +154,56 @@ type GetPromptResult struct {
 	Messages []PromptMessage `json:"messages"`
 }
 
-// Note: Standard json.Marshal and json.Unmarshal can be used for these types.
+// MarshalListPromptsRequest creates a JSON-RPC request for the prompts/list method.
+// The id can be a string or an integer. If params is nil, default empty params will be used.
+func MarshalListPromptsRequest(id RequestID, params *ListPromptsParams) ([]byte, error) {
+	// Use default empty params if nil is provided
+	var p interface{}
+	if params != nil {
+		p = params
+	} else {
+		p = struct{}{} // Empty object for params if none specified
+	}
+
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodListPrompts,
+		Params:  p,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalListPromptsResponse parses a JSON-RPC response for a prompts/list request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+func UnmarshalListPromptsResponse(data []byte) (*ListPromptsResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present (it's optional in the RPCResponse struct)
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		// For ListPrompts, we expect a result object.
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodListPrompts)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result ListPromptsResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal ListPromptsResult from response result: %w", err)
+	}
+
+	return &result, resp.ID, nil, nil
+}
+
+
+// Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For PromptMessage.Content, further processing is needed after unmarshaling
 // to determine the concrete type (TextContent, ImageContent, or EmbeddedResource).
