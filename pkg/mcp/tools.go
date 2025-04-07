@@ -1,10 +1,6 @@
 // Package mcp defines types and functions related to the Model Context Protocol (MCP).
 package mcp
 
-import (
-	"encoding/json"
-)
-
 // ToolsListRequest represents the full JSON-RPC request for the "tools/list" method.
 type ToolsListRequest struct {
 	JSONRPC string      `json:"jsonrpc"` // Should be "2.0"
