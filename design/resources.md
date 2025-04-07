@@ -1,56 +1,55 @@
-# resources/list
+# resources
 
-create file pkg/mcp/resources.go, it will have a go type definition for and model context protocol resources/list message request and response.  include functions for marshaling and unmarshaling the request and response types
+create file pkg/mcp/resources.go. Include a go type definition for and model context protocol messages resources/list and resources/read, for both the requests and responses.  include functions for marshaling and unmarshaling the request and response types. Refer to "design/schema.json" for the json type definitions. in schema.json, the types are:
 
-here are examples of the request and response
+- resources/list
+  - ListResourcesRequest
+  - ListResourcesResult
+- resources/read  
+  - ReadResourceRequest
+  - ReadResourceResponse
 
-- Request
-```json
+
+in pkg/mcp/resources.go, add a function that marshals and unmarshals a resources list request and result like these examples. note that the "id" field can be a number or a string
+
+Request
 {
   "jsonrpc": "2.0",
   "id": "1",
-  "method": "resources/list",
-  "params": {}
+  "method": "resources/list"
 }
 
-```
-
-- Response
-```json
+Response
 {
-    "jsonrpc": "2.0",
-    "id": "1",
-    "result": {
-        "resources": [
-            {
-            "uri": "file:///logs/app.log",
-            "name": "Application Logs",
-            "mimeType": "text/plain",
-            "lastModified": "2025-04-07T09:30:00Z"
-            }
-        ]
+  "jsonrpc": "2.0",
+  "id": "1",
+  "resources": [
+    {
+      "uri": "file:///logs/app.log",
+      "name": "Application Logs",
+      "mimeType": "text/plain",
+      "lastModified": "2025-04-07T09:30:00Z"
     }
+  ]
 }
-```
 
 
-in pkg/mcp/resources.go, add json type definitions for the resources/read request and response, according to this examples:
-- Request
-```json
+in pkg/mcp/resources.go, add a function that marshals and unmarhsls a resources/read request and result, like these examples:
+
+request
 {
   "jsonrpc": "2.0",
-  "id": "1",
+  "id": "2",
   "method": "resources/read",
-  "uri": "file:///logs/app.log"
+  "params": {
+    "uri": "file:///logs/app.log"
+  }
 }
-```
 
-- Response
-
-```json
+response
 {
   "jsonrpc": "2.0",
-  "id": "1",
+  "id": "2",
   "contents": [
     {
       "uri": "file:///logs/app.log",
@@ -60,4 +59,6 @@ in pkg/mcp/resources.go, add json type definitions for the resources/read reques
     }
   ]
 }
-```
+
+create a file, pkg/mcp/resources_test.go, that uses the standard golang test
+framework. it will test the functions in pkg/mcp/resources.go for proper marshalling and unmarshaling

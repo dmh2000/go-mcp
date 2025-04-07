@@ -1,12 +1,19 @@
-# tools/list
+# tools
 
-create file pkg/mcp/tools.go, it will have a go type definition for and model context protocol tools/list message request and response.  include functions for marshaling and unmarshaling the request and response types
+create file pkg/mcp/tools.go. Include a go type definition for and model context protocol messages tools/list and tools/get, for both the requests and responses.  Refer to "design/schema.json" for the json type definitions. in schema.json, the types are:
 
-here are examples of the request and response
+- tools/list
+  - ListToolsRequest
+  - ListToolsResult
+- tools/read  
+  - CallToolsRequest
+  - CallToolsResponse
 
-tools/list request
+===================================================================
 
-```json
+in pkg/mcp/tools.go, add a function that marshals and unmarshals a tools/list request and result. here are examples. note that the "id" field can be a number or a string
+
+Request
 {
   "jsonrpc": "2.0",
   "id": "1",
@@ -14,36 +21,59 @@ tools/list request
   "params": {}
 }
 
-```
 
-tools/list response
-
-```json
+Response
 {
   "jsonrpc": "2.0",
   "id": "1",
   "result": {
     "tools": [
-        {
-        "name": "random_string",
-        "description": "return a random string of characters",
+      {
+        "name": "calculate_sum",
+        "description": "Adds two numbers together.",
         "inputSchema": {
-            "type": "object",
-            "properties": {
-            "length": {"type": "number"},
-            },
-            "required": ["length"]
+          "type": "object",
+          "properties": {
+            "a": { "type": "number" },
+            "b": { "type": "number" }
+          },
+          "required": ["a", "b"]
         }
-    }
-  ]
+      },
+      {
+        "name": "fetch_weather",
+        "description": "Fetches the current weather for a given city.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "city": { "type": "string" }
+          },
+          "required": ["city"]
+        }
+      },
+      {
+        "name": "translate_text",
+        "description": "Translates text from one language to another.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": { "type": "string" },
+            "sourceLanguage": { "type": "string" },
+            "targetLanguage": { "type": "string" }
+          },
+          "required": ["text", "sourceLanguage", "targetLanguage"]
+        }
+      }
+    ]
   }
 }
-```
 
+===================================================================
 
-in pkg/mcp/tools.go, add json type definitions for the tools/call request and response, according to this examples:
-- Request
-```json
+in pkg/mcp/tools.go, add a function that marshals and unmarshals a tools/call request and result. here are examples. note that the "id" field can be a number or a string
+
+request
+
 {
   "jsonrpc": "2.0",
   "id": "1",
@@ -51,15 +81,14 @@ in pkg/mcp/tools.go, add json type definitions for the tools/call request and re
   "params": {
     "name": "calculate_sum",
     "arguments": {
-      "a": 5,
-      "b": 3
+      "a": 10,
+      "b": 15
     }
   }
 }
 
-```
-- Response
-```json
+
+response
 {
   "jsonrpc": "2.0",
   "id": "1",
@@ -67,10 +96,14 @@ in pkg/mcp/tools.go, add json type definitions for the tools/call request and re
     "content": [
       {
         "type": "text",
-        "text": "8"
+        "text": "25"
       }
     ]
   }
 }
 
-"{\"jsonrpc\":\"2.0\",\"id\":123,\"result\":{\"tools\":[{\"name\":\"tool1\",\"description\":\"desc1\",\"inputSchema\":{\"type\":\"string\"}}]}}"
+
+
+===================================================================
+
+create a file, pkg/mcp/tools_test.go, that tests marshalling and unmarshaling tools/list and tools/call functions. 

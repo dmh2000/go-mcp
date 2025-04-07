@@ -159,7 +159,7 @@ func TestMarshalReadResourceRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := MarshalReadResourceRequest(tt.id, tt.params)
+			got, err := MarshalReadResourcesRequest(tt.id, tt.params)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("MarshalReadResourceRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -249,7 +249,7 @@ func TestUnmarshalReadResourceResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotResult, gotID, gotErr, parseErr := UnmarshalReadResourceResponse([]byte(tt.data))
+			gotResult, gotID, gotErr, parseErr := UnmarshalReadResourcesResponse([]byte(tt.data))
 
 			if (parseErr != nil) != tt.parseErr {
 				t.Fatalf("UnmarshalReadResourceResponse() parseErr = %v, want parseErr %v", parseErr, tt.parseErr)

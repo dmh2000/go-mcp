@@ -8,7 +8,7 @@ import (
 // Method names for resource operations.
 const (
 	MethodListResources = "resources/list"
-	MethodReadResource = "resources/read" // Keep for consistency, even if not used yet
+	MethodReadResource  = "resources/read" // Keep for consistency, even if not used yet
 )
 
 // Resource represents a known resource the server can read.
@@ -131,7 +131,7 @@ func UnmarshalListResourcesResponse(data []byte) (*ListResourcesResult, RequestI
 
 // MarshalReadResourceRequest creates a JSON-RPC request for the resources/read method.
 // The id can be a string or an integer.
-func MarshalReadResourceRequest(id RequestID, params ReadResourceParams) ([]byte, error) {
+func MarshalReadResourcesRequest(id RequestID, params ReadResourceParams) ([]byte, error) {
 	req := RPCRequest{
 		JSONRPC: JSONRPCVersion,
 		Method:  MethodReadResource,
@@ -141,12 +141,12 @@ func MarshalReadResourceRequest(id RequestID, params ReadResourceParams) ([]byte
 	return json.Marshal(req)
 }
 
-// UnmarshalReadResourceResponse parses a JSON-RPC response for a resources/read request.
+// UnmarshalReadResourcesResponse parses a JSON-RPC response for a resources/read request.
 // It expects the standard JSON-RPC response format with the result nested in the "result" field.
 // It returns the result, the response ID, any RPC error, and a general parsing error.
 // Note: The Contents field within the result will contain json.RawMessage elements
 // that need further unmarshaling into TextResourceContents or BlobResourceContents by the caller.
-func UnmarshalReadResourceResponse(data []byte) (*ReadResourceResult, RequestID, *RPCError, error) {
+func UnmarshalReadResourcesResponse(data []byte) (*ReadResourceResult, RequestID, *RPCError, error) {
 	var resp RPCResponse
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
