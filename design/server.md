@@ -58,23 +58,34 @@ These is a summary of the request/response implementation requirements for an MC
 - Request
 ```json
 {
-  "name": "calculate_sum",
-  "arguments": {
-    "a": 5,
-    "b": 3
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "tools/call",
+  "params": {
+    "name": "calculate_sum",
+    "arguments": {
+      "a": 5,
+      "b": 3
+    }
   }
 }
+
 ```
 - Response
 ```json
 {
-  "content": [
-    {
-      "type": "text",
-      "text": "8"
-    }
-  ]
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "8"
+      }
+    ]
+  }
 }
+
 ```
 - Error Handling
   - Invalid Tool: Return {"error": {"code": -32601, "message": "Tool not found"}}
@@ -98,21 +109,27 @@ These is a summary of the request/response implementation requirements for an MC
 {
   "jsonrpc": "2.0",
   "id": "1",
-  "method": "resources/list"
+  "method": "resources/list",
+  "params": {}
 }
+
 ```
 
 - Response
 ```json
 {
-  "resources": [
-    {
-      "uri": "file:///logs/app.log",
-      "name": "Application Logs",
-      "mimeType": "text/plain",
-      "lastModified": "2025-04-07T09:30:00Z"
+    "jsonrpc": "2.0",
+    "id": "1",
+    "result": {
+        "resources": [
+            {
+            "uri": "file:///logs/app.log",
+            "name": "Application Logs",
+            "mimeType": "text/plain",
+            "lastModified": "2025-04-07T09:30:00Z"
+            }
+        ]
     }
-  ]
 }
 ```
 
@@ -138,6 +155,8 @@ These is a summary of the request/response implementation requirements for an MC
 
 ```json
 {
+  "jsonrpc": "2.0",
+  "id": "1",
   "contents": [
     {
       "uri": "file:///logs/app.log",
@@ -198,23 +217,41 @@ These is a summary of the request/response implementation requirements for an MC
   "jsonrpc": "2.0",
   "id": "1",
   "method": "prompts/get",
-  "name": "commit",
+  "params": {
+    "name": "generate_commit_message",
+    "arguments": {
+      "changes": "- Fixed a bug in the login flow\n- Improved performance of the dashboard"
+    }
+  }
 }
+
 ```
 
 - Response
 ```json
 {
-  "messages": [
-    {
-      "role": "user",
-      "content": {
-        "type": "text",
-        "text": "Generate a commit message for:\n\n{{changes}}"
+  "jsonrpc": "2.0",
+  "id": "1",
+  "result": {
+    "messages": [
+      {
+        "role": "system",
+        "content": {
+          "type": "text",
+          "text": "You are an AI assistant that generates concise and professional Git commit messages."
+        }
+      },
+      {
+        "role": "user",
+        "content": {
+          "type": "text",
+          "text": "Generate a commit message for the following changes:\n\n- Fixed a bug in the login flow\n- Improved performance of the dashboard"
+        }
       }
-    }
-  ]
+    ]
+  }
 }
+
 ```
 
 - There are additional requirements if using the SSE transport, not recovered here.

@@ -97,7 +97,8 @@ func TestToolsListResponse_MarshalUnmarshal(t *testing.T) {
 			}
 
 			// Compare marshaled JSON
-			if string(jsonData) != tt.expected {
+			s := string(jsonData)
+			if s != tt.expected {
 				t.Errorf("Marshaled JSON does not match expected.\nExpected: %s\nGot: %s", tt.expected, string(jsonData))
 			}
 
