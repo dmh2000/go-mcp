@@ -61,8 +61,9 @@ func TestUnmarshalListToolsResponse(t *testing.T) {
 		InputSchema: ToolInputSchema{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"a": map[string]string{"type": "number"},
-				"b": map[string]string{"type": "number"},
+				// Use map[string]interface{} to match unmarshaling behavior
+				"a": map[string]interface{}{"type": "number"},
+				"b": map[string]interface{}{"type": "number"},
 			},
 			"required": []string{"a", "b"},
 		},
