@@ -143,6 +143,49 @@ func UnmarshalListPromptsResponse(data []byte) (*ListPromptsResult, RequestID, *
 	return &result, resp.ID, nil, nil
 }
 
+// MarshalGetPromptRequest creates a JSON-RPC request for the prompts/get method.
+// The id can be a string or an integer.
+func MarshalGetPromptRequest(id RequestID, params GetPromptParams) ([]byte, error) {
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodGetPrompt,
+		Params:  params,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalGetPromptResponse parses a JSON-RPC response for a prompts/get request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+// Note: The Content field within each PromptMessage in the result's Messages array
+// will contain json.RawMessage elements that need further unmarshaling by the caller.
+func UnmarshalGetPromptResponse(data []byte) (*GetPromptResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodGetPrompt)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result GetPromptResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal GetPromptResult from response result: %w", err)
+	}
+
+	// The caller needs to process result.Messages[...].Content further
+	return &result, resp.ID, nil, nil
+}
+
 // Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For PromptMessage.Content, further processing is needed after unmarshaling
 // to determine the concrete type (TextContent, ImageContent, or EmbeddedResource).
