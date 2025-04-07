@@ -3,6 +3,7 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 )
 
 // JSONRPCVersion is the fixed JSON-RPC version string.
@@ -53,4 +54,17 @@ type Annotations struct {
 	Audience []Role `json:"audience,omitempty"`
 	// Priority indicates importance (1=most important, 0=least important).
 	Priority *float64 `json:"priority,omitempty"` // Use pointer for optional 0 value
+}
+
+// jsonEqual compares two byte slices containing JSON, ignoring whitespace differences.
+// Useful for comparing marshaled JSON in tests.
+func jsonEqual(a, b []byte) (bool, error) {
+	var j1, j2 interface{}
+	if err := json.Unmarshal(a, &j1); err != nil {
+		return false, fmt.Errorf("failed to unmarshal first JSON: %w", err)
+	}
+	if err := json.Unmarshal(b, &j2); err != nil {
+		return false, fmt.Errorf("failed to unmarshal second JSON: %w", err)
+	}
+	return reflect.DeepEqual(j1, j2), nil
 }

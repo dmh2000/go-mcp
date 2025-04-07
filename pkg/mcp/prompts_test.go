@@ -6,19 +6,6 @@ import (
 	"testing"
 )
 
-// Helper function to compare JSON, ignoring whitespace differences
-// Note: Copied from resources_test.go, consider moving to a shared test utility package.
-func jsonEqual(a, b []byte) (bool, error) {
-	var j1, j2 interface{}
-	if err := json.Unmarshal(a, &j1); err != nil {
-		return false, err
-	}
-	if err := json.Unmarshal(b, &j2); err != nil {
-		return false, err
-	}
-	return reflect.DeepEqual(j1, j2), nil
-}
-
 func TestMarshalListPromptsRequest(t *testing.T) {
 	tests := []struct {
 		name    string

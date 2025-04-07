@@ -6,18 +6,6 @@ import (
 	"testing"
 )
 
-// Helper function to compare JSON, ignoring whitespace differences
-func jsonEqual(a, b []byte) (bool, error) {
-	var j1, j2 interface{}
-	if err := json.Unmarshal(a, &j1); err != nil {
-		return false, err
-	}
-	if err := json.Unmarshal(b, &j2); err != nil {
-		return false, err
-	}
-	return reflect.DeepEqual(j1, j2), nil
-}
-
 func TestMarshalListResourcesRequest(t *testing.T) {
 	tests := []struct {
 		name    string
