@@ -1,6 +1,9 @@
 package mcp
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt" // Added for error formatting
+)
 
 // Method names for tool operations.
 const (
@@ -67,6 +70,55 @@ type CallToolResult struct {
 	IsError bool `json:"isError,omitempty"`
 }
 
-// Note: Standard json.Marshal and json.Unmarshal can be used for these types.
+// MarshalListToolsRequest creates a JSON-RPC request for the tools/list method.
+// The id can be a string or an integer. If params is nil, default empty params will be used.
+func MarshalListToolsRequest(id RequestID, params *ListToolsParams) ([]byte, error) {
+	// Use default empty params if nil is provided
+	var p interface{}
+	if params != nil {
+		p = params
+	} else {
+		p = struct{}{} // Empty object for params if none specified
+	}
+
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodListTools,
+		Params:  p,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalListToolsResponse parses a JSON-RPC response for a tools/list request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+func UnmarshalListToolsResponse(data []byte) (*ListToolsResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		// For ListTools, we expect a result object.
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodListTools)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result ListToolsResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal ListToolsResult from response result: %w", err)
+	}
+
+	return &result, resp.ID, nil, nil
+}
+
+// Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For CallToolResult.Content and EmbeddedResource.Resource, further processing is needed after unmarshaling
 // to determine the concrete type.
