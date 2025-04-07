@@ -18,6 +18,7 @@ func TestMarshalListToolsRequest(t *testing.T) {
 			name:   "nil params, string id",
 			id:     "tool-list-1",
 			params: nil,
+			want:   `{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"tool-list-1"}`,
 		},
 		{
 			name:   "empty params, int id",
@@ -130,12 +131,27 @@ func TestUnmarshalListToolsResponse(t *testing.T) {
 			if !reflect.DeepEqual(gotID, tt.wantID) {
 				t.Errorf("UnmarshalListToolsResponse() gotID = %v, want %v", gotID, tt.wantID)
 			}
-			// Use reflect.DeepEqual for comparing results including maps/slices
-			if !reflect.DeepEqual(gotResult, tt.wantResult) {
-				// For better debugging, marshal results back to JSON for comparison
-				gotJSON, _ := json.MarshalIndent(gotResult, "", "  ")
-				wantJSON, _ := json.MarshalIndent(tt.wantResult, "", "  ")
-				t.Errorf("UnmarshalListToolsResponse() gotResult = \n%s\nwant = \n%s", string(gotJSON), string(wantJSON))
+
+			// Compare marshaled JSON of results instead of DeepEqual on structs
+			// due to potential type inconsistencies in nested maps after unmarshaling.
+			gotJSON, err := json.Marshal(gotResult)
+			if err != nil {
+				t.Fatalf("Failed to marshal gotResult: %v", err)
+			}
+			wantJSON, err := json.Marshal(tt.wantResult)
+			if err != nil {
+				t.Fatalf("Failed to marshal wantResult: %v", err)
+			}
+
+			equal, err := jsonEqual(gotJSON, wantJSON)
+			if err != nil {
+				t.Fatalf("Error comparing result JSON: %v", err)
+			}
+			if !equal {
+				// Indent for readability in error message
+				gotJSONIndent, _ := json.MarshalIndent(gotResult, "", "  ")
+				wantJSONIndent, _ := json.MarshalIndent(tt.wantResult, "", "  ")
+				t.Errorf("UnmarshalListToolsResponse() gotResult JSON = \n%s\nwant JSON = \n%s", string(gotJSONIndent), string(wantJSONIndent))
 			}
 		})
 	}
