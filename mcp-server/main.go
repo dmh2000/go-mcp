@@ -124,7 +124,7 @@ func (s *MCPService) Initialize(args *InitArgs, reply *InitResponse) error {
 			"RandomString", // List of capabilities this server supports
 		},
 	}
-	
+
 	log.Printf("Sending initialize response: %+v", *reply)
 	return nil
 }
@@ -340,7 +340,8 @@ func (c *LoggingServerCodec) ReadRequestBody(x interface{}) error {
 func (c *LoggingServerCodec) WriteResponse(r *rpc.Response, x interface{}) error {
 	// Special handling for notifications (like 'initialized')
 	// For notifications, we don't send a response
-	if r.ServiceMethod == "MCPService.Initialized" && r.Seq == 0 {
+	log.Printf("DEBUG: ********Writing response for request : %s", r.ServiceMethod)
+	if r.ServiceMethod == "notifications/initialized" {
 		log.Printf("DEBUG: Skipping response for notification: %s", r.ServiceMethod)
 		return nil
 	}
@@ -395,8 +396,9 @@ func main() {
 		// If we can't open the log file, we log to stderr and exit
 		log.Fatalf("Failed to open log file: %v", err)
 	}
-	defer logFile.Close()  // Ensure we close the log file when the program exits
-	log.SetOutput(logFile) // Redirect all log output to the file
+	defer logFile.Close()                                // Ensure we close the log file when the program exits
+	log.SetOutput(logFile)                               // Redirect all log output to the file
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile) // Set log format
 	log.Println("MCP Server log initialized")
 
 	// Set up signal handling for graceful shutdown

@@ -134,7 +134,7 @@ func NewMCPClient(serverPath string) (*MCPClient, error) {
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout), // Buffered reader for better performance
 		nextID: initialRequestID,        // Start with initial request ID
-		logger: log.New(os.Stdout, "DEBUG - ", log.Ldate|log.Ltime),
+		logger: log.New(os.Stdout, "DEBUG - ", log.Ldate|log.Ltime|log.Lshortfile),
 	}, nil
 }
 
@@ -196,7 +196,7 @@ func (c *MCPClient) Close() error {
 func (c *MCPClient) Initialize() (*InitResponse, error) {
 	// Send an initialize request to the server
 	c.logger.Printf("Sending initialize request to server")
-	
+
 	// Create initialize args with client info
 	initArgs := struct {
 		ClientInfo struct {
@@ -212,28 +212,28 @@ func (c *MCPClient) Initialize() (*InitResponse, error) {
 			Version: "1.0.0",
 		},
 	}
-	
+
 	// Prepare a struct to receive the result
 	var initResp InitResponse
-	
+
 	// Make the RPC call to initialize the server
 	if err := c.Call("initialize", initArgs, &initResp); err != nil {
 		return nil, fmt.Errorf("failed to initialize server: %w", err)
 	}
-	
+
 	// Send initialized notification
-	c.logger.Printf("Sending initialized notification to server")
+	c.logger.Printf("DEBUG: Sending initialized notification to server")
 	if err := c.Call("initialized", struct{}{}, nil); err != nil {
-		c.logger.Printf("Warning: failed to send initialized notification: %v", err)
+		c.logger.Printf("DEBUG: expect no response to 'notify/initialized' method %v", err)
 		// Continue anyway, this is just a notification
 	}
-	
+
 	// Store server capabilities for later reference
 	// This allows us to check if a capability is available before calling it
 	c.serverCap = initResp.Capabilities
-	
+
 	c.logger.Printf("Server initialized successfully with capabilities: %v", c.serverCap)
-	
+
 	return &initResp, nil
 }
 
@@ -469,14 +469,16 @@ func main() {
 	if client.HasCapability("RandomString") {
 		fmt.Println("\nTesting RandomString capability:")
 
-		// Call the RandomString method with our default length
-		randomStr, err := client.RandomString(defaultRandomStringLength)
-		if err != nil {
-			log.Fatalf("Failed to call RandomString: %v", err)
-		}
+		for i := 0; i < 5; i++ {
+			// Call the RandomString method with our default length
+			randomStr, err := client.RandomString(defaultRandomStringLength)
+			if err != nil {
+				log.Fatalf("Failed to call RandomString: %v", err)
+			}
 
-		// Display the result
-		client.logger.Printf("Random string (%d chars): %s", defaultRandomStringLength, randomStr)
+			// Display the result
+			client.logger.Printf("Random string (%d chars): %s", defaultRandomStringLength, randomStr)
+		}
 	}
 
 	// The client will be automatically closed by the defer statement above
