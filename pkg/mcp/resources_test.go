@@ -27,22 +27,22 @@ func TestMarshalListResourcesRequest(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "nil params, string id",
-			id:   "req-1",
+			name:   "nil params, string id",
+			id:     "req-1",
 			params: nil,
-			want: `{"jsonrpc":"2.0","method":"resources/list","params":{},"id":"req-1"}`,
+			want:   `{"jsonrpc":"2.0","method":"resources/list","params":{},"id":"req-1"}`,
 		},
 		{
-			name: "with params, int id",
-			id:   2,
+			name:   "with params, int id",
+			id:     2,
 			params: &ListResourcesParams{Cursor: "page-token-123"},
-			want: `{"jsonrpc":"2.0","method":"resources/list","params":{"cursor":"page-token-123"},"id":2}`,
+			want:   `{"jsonrpc":"2.0","method":"resources/list","params":{"cursor":"page-token-123"},"id":2}`,
 		},
 		{
-			name: "empty params, int id",
-			id:   3,
+			name:   "empty params, int id",
+			id:     3,
 			params: &ListResourcesParams{},
-			want: `{"jsonrpc":"2.0","method":"resources/list","params":{},"id":3}`,
+			want:   `{"jsonrpc":"2.0","method":"resources/list","params":{},"id":3}`,
 		},
 	}
 
@@ -98,8 +98,8 @@ func TestUnmarshalListResourcesResponse(t *testing.T) {
 			wantID:     float64(10), // JSON numbers unmarshal to float64 by default
 		},
 		{
-			name: "rpc error response",
-			data: `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":11}`,
+			name:   "rpc error response",
+			data:   `{"jsonrpc":"2.0","error":{"code":-32601,"message":"Method not found"},"id":11}`,
 			wantID: float64(11),
 			wantErr: &RPCError{
 				Code:    -32601,
@@ -234,8 +234,8 @@ func TestUnmarshalReadResourceResponse(t *testing.T) {
 			wantID:     float64(51),
 		},
 		{
-			name: "rpc error response",
-			data: `{"jsonrpc":"2.0","error":{"code":-32000,"message":"Resource not found"},"id":52}`,
+			name:   "rpc error response",
+			data:   `{"jsonrpc":"2.0","error":{"code":-32000,"message":"Resource not found"},"id":52}`,
 			wantID: float64(52),
 			wantErr: &RPCError{
 				Code:    -32000,
