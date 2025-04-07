@@ -75,16 +75,44 @@ type InitArgs struct {
 	ProcessID    *int        `json:"processId,omitempty"` // Pointer allows null
 	ClientInfo   *ClientInfo `json:"clientInfo,omitempty"`
 	RootURI      *string     `json:"rootUri,omitempty"`      // Pointer allows null/omitted
-	Capabilities interface{} `json:"capabilities,omitempty"` // Keep generic for now
+	Capabilities interface{} `json:"capabilities,omitempty"` // Client capabilities (keep generic for now)
 	// Add other fields like workspaceFolders, trace, etc. as needed
+}
+
+// ToolCapability represents a tool offered by the server
+type ToolCapability struct {
+	Name        string `json:"name"`                  // Name of the tool (e.g., "RandomString")
+	Description string `json:"description,omitempty"` // Optional description
+	// Add other tool-specific fields like input/output schema if needed
+}
+
+// ResourceCapability represents a resource provided by the server
+type ResourceCapability struct {
+	Name        string `json:"name"`                  // Name of the resource
+	Description string `json:"description,omitempty"` // Optional description
+	// Add other resource-specific fields
+}
+
+// PromptCapability represents a prompt template or suggestion
+type PromptCapability struct {
+	Name        string `json:"name"`                  // Name of the prompt
+	Description string `json:"description,omitempty"` // Optional description
+	Template    string `json:"template,omitempty"`    // Optional prompt template
+}
+
+// ServerCapabilities defines the structure for server capabilities in the response
+type ServerCapabilities struct {
+	Tools     []ToolCapability     `json:"tools,omitempty"`     // List of available tools
+	Resources []ResourceCapability `json:"resources,omitempty"` // List of available resources
+	Prompts   []PromptCapability   `json:"prompts,omitempty"`   // List of available prompts
 }
 
 // InitResponse contains the server information sent during initialization
 // This is the first message sent to clients and includes server capabilities
 type InitResponse struct {
-	Name         string   `json:"name"`         // Server name
-	Version      string   `json:"version"`      // Server version
-	Capabilities []string `json:"capabilities"` // List of available capabilities
+	Name         string             `json:"name"`         // Server name
+	Version      string             `json:"version"`      // Server version
+	Capabilities ServerCapabilities `json:"capabilities"` // Server capabilities structure
 }
 
 // RandomStringArgs contains arguments for the RandomString method
