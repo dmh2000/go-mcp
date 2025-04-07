@@ -119,6 +119,49 @@ func UnmarshalListToolsResponse(data []byte) (*ListToolsResult, RequestID, *RPCE
 	return &result, resp.ID, nil, nil
 }
 
+// MarshalCallToolRequest creates a JSON-RPC request for the tools/call method.
+// The id can be a string or an integer.
+func MarshalCallToolRequest(id RequestID, params CallToolParams) ([]byte, error) {
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodCallTool,
+		Params:  params,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalCallToolResponse parses a JSON-RPC response for a tools/call request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+// Note: The Content field within the result will contain json.RawMessage elements
+// that need further unmarshaling into TextContent, ImageContent, or EmbeddedResource by the caller.
+func UnmarshalCallToolResponse(data []byte) (*CallToolResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodCallTool)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result CallToolResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal CallToolResult from response result: %w", err)
+	}
+
+	// The caller needs to process result.Content further
+	return &result, resp.ID, nil, nil
+}
+
 // Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For CallToolResult.Content and EmbeddedResource.Resource, further processing is needed after unmarshaling
 // to determine the concrete type.
