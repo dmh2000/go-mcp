@@ -179,6 +179,49 @@ func UnmarshalListResourcesResponse(data []byte) (*ListResourcesResult, RequestI
 	return &result, resp.ID, nil, nil
 }
 
+// MarshalReadResourceRequest creates a JSON-RPC request for the resources/read method.
+// The id can be a string or an integer.
+func MarshalReadResourceRequest(id RequestID, params ReadResourceParams) ([]byte, error) {
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodReadResource,
+		Params:  params,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalReadResourceResponse parses a JSON-RPC response for a resources/read request.
+// It expects the standard JSON-RPC response format with the result nested in the "result" field.
+// It returns the result, the response ID, any RPC error, and a general parsing error.
+// Note: The Contents field within the result will contain json.RawMessage elements
+// that need further unmarshaling into TextResourceContents or BlobResourceContents by the caller.
+func UnmarshalReadResourceResponse(data []byte) (*ReadResourceResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	// Check for JSON-RPC level error
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil // Return RPC error, no result expected
+	}
+
+	// Check if the result field is present
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodReadResource)
+	}
+
+	// Unmarshal the actual result from the Result field
+	var result ReadResourceResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal ReadResourceResult from response result: %w", err)
+	}
+
+	// The caller needs to process result.Contents further
+	return &result, resp.ID, nil, nil
+}
+
 // Note: Standard json.Marshal and json.Unmarshal can be used for the other defined types.
 // For ReadResourceResult.Contents, further processing is needed after unmarshaling
 // to determine the concrete type (TextResourceContents or BlobResourceContents) of each element.
