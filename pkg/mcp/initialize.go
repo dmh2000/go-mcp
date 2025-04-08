@@ -66,9 +66,8 @@ type ServerCapabilitiesResources struct {
 
 // ServerCapabilitiesTools defines specific capabilities related to tools.
 type ServerCapabilitiesTools struct {
-		ListChanged bool `json:"listChanged,omitempty"`
-	} `json:"tools,omitempty"`
-	// Add other capabilities like completion if needed.
+	ListChanged bool `json:"listChanged,omitempty"`
+	// Add other tool-related capabilities here if needed
 }
 
 // InitializeResult defines the result structure for an "initialize" response.
