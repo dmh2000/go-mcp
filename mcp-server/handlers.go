@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log" // Keep log import
 
+	// Keep log import
 	// Use the absolute module path
 	"sqirvy/mcp/pkg/mcp"
 )
@@ -34,28 +34,31 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		s.logger.Println(err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
-		if marshalErr != nil { return nil, marshalErr }
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
 		return errorBytes, err
 	}
 
-    // Ensure req.Params is json.RawMessage before unmarshalling into specific type
-    paramsRaw, ok := req.Params.(json.RawMessage)
-    if !ok {
-        // This might happen if params is not an object/array in the JSON
-        // Attempt to remarshal and then treat as RawMessage if needed, or handle error
-        tempParamsBytes, err := json.Marshal(req.Params)
-        if err != nil {
-             err = fmt.Errorf("initialize request 'params' field is not a valid JSON object/array (marshal check failed): %w", err)
-             s.logger.Println(err.Error())
-             rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
-             errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
-             if marshalErr != nil { return nil, marshalErr }
-             return errorBytes, err
-        }
-        paramsRaw = json.RawMessage(tempParamsBytes)
-         s.logger.Printf("Initialize params were not RawMessage initially, re-marshalled: %s", string(paramsRaw))
-    }
-
+	// Ensure req.Params is json.RawMessage before unmarshalling into specific type
+	paramsRaw, ok := req.Params.(json.RawMessage)
+	if !ok {
+		// This might happen if params is not an object/array in the JSON
+		// Attempt to remarshal and then treat as RawMessage if needed, or handle error
+		tempParamsBytes, err := json.Marshal(req.Params)
+		if err != nil {
+			err = fmt.Errorf("initialize request 'params' field is not a valid JSON object/array (marshal check failed): %w", err)
+			s.logger.Println(err.Error())
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+			errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
+			if marshalErr != nil {
+				return nil, marshalErr
+			}
+			return errorBytes, err
+		}
+		paramsRaw = json.RawMessage(tempParamsBytes)
+		s.logger.Printf("Initialize params were not RawMessage initially, re-marshalled: %s", string(paramsRaw))
+	}
 
 	// Now unmarshal params specifically into InitializeParams
 	var params mcp.InitializeParams
@@ -64,10 +67,11 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		s.logger.Println(err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
-		if marshalErr != nil { return nil, marshalErr }
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
 		return errorBytes, err
 	}
-
 
 	s.logger.Printf("Received Initialize Request (ID: %v): ClientInfo=%+v, ProtocolVersion=%s, Caps=%+v",
 		id, params.ClientInfo, params.ProtocolVersion, params.Capabilities)
@@ -78,7 +82,9 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		s.logger.Println(err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
-		if marshalErr != nil { return nil, marshalErr }
+		if marshalErr != nil {
+			return nil, marshalErr
+		}
 		return errorBytes, err
 	}
 	// Basic check: Log if client version differs, but proceed using our version.
@@ -88,12 +94,11 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	// TODO: Add more robust version negotiation if needed.
 	// TODO: Inspect params.Capabilities and potentially enable/disable server features.
 
-
 	// --- Prepare Response ---
 	result := mcp.InitializeResult{
 		ProtocolVersion: s.serverVersion,
 		ServerInfo:      s.serverInfo,
-		Capabilities: mcp.ServerCapabilities{
+		Capabilities:    mcp.ServerCapabilities{
 			// Explicitly state no capabilities initially.
 			// To enable later, uncomment and potentially configure:
 			// Logging:   map[string]interface{}{}, // Empty object indicates basic support
@@ -116,7 +121,6 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 
 	return responseBytes, nil // Return success response bytes and nil error
 }
-
 
 // --- Handlers for other methods ---
 // These handlers now return the marshalled response/error bytes and any error encountered during marshalling.
