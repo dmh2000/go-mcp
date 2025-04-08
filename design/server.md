@@ -1,11 +1,35 @@
-These is a summary of the request/response implementation requirements for an MCP server using the STDIO transport. There are additional requirements for transport SSE subscriptions, not covered here.
+In directory mcp-server, create a 'go' command line application that implements a model context protocol server. 
 
-in directory cmd/mcp-server.go, create an mcp server with the following:
+The application will accept a command line argument "--log <logfile>" 
 
-# message flow from client to server
-client -> initialize request
-server -> initialize response
-client -> notification/initialized message (server does not respond)
+## logging
+The server will include log messages  where needed to facilitate debug. 
+The server will log the receipt of client messages including the json, including a descriptive comment.
+The server will log when sending a response message, including the json and a descriptive comment.
+It will use the golang standard 'log' package.
+It will log to a file, not stderr or stdout. 
+The default filename will be 'mcp-server.log' unless the --log command line specfies a different filename
+
+## transport
+The application will use json-rpc 2.0 over STDIO  for messages.
+
+## other requirements
+The application will use only standard golang libraries. no third party libraries 
+The code should be partitioned into logical components in the mcp-server directory where it makes sense.
+
+## Messages
+Message  types are in directory "pkg/mcp", including required types and marshal/unmarshal functions for each message type.
+
+to begin with, the server will not have any tools, prompts or resources implemented. 
+Initially the server will respond to the client 'initialize' request with a response that indicates no capabilties.
+The server will return the ErrorCodeMethodNotFound for any other requests that are not supported. Implementations of tools, prompts and resources will be added incrementally later. The server code will attempt to make it reasonably easy to add capabilities incrementally.
+
+ ### Server flow
+
+- server waits for an 'initialize' request from the client
+- server responses with an 'initialize' response including a list of capabilties, if any.
+- server waits for a 'notification/initialized' message from the client. 
+- The server does not respond to 'notification' messages, it just logs them.
 
 following initialization, the server will have an infinite loop where 
 it waits for the client to send a request, and the server will send a response. 
@@ -56,3 +80,6 @@ the request/response message types supported include:
 ### error
 
 The server will return an appropriate 'error' message from the list in pkg/mcp/error.go, in the event any request cannot be completed.
+
+
+
