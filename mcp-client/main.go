@@ -116,6 +116,26 @@ func main() {
 	}
 
 	logger.Printf("Initialization successful. Server capabilities: %+v", serverCaps)
+
+	// --- List Resources ---
+	logger.Println("Requesting resource list from server...")
+	listResult, err := client.ListResources(nil) // Pass nil for default params
+	if err != nil {
+		logger.Fatalf("Failed to list resources: %v", err)
+	}
+	logger.Printf("Successfully listed resources:")
+	if len(listResult.Resources) == 0 {
+		logger.Println("  (No resources reported by server)")
+	} else {
+		for _, resource := range listResult.Resources {
+			logger.Printf("  - Name: %s, URI: %s, Description: %s, MimeType: %s",
+				resource.Name, resource.URI, resource.Description, resource.MimeType)
+		}
+	}
+	if listResult.NextCursor != "" {
+		logger.Printf("  (Pagination cursor available: %s)", listResult.NextCursor)
+	}
+
 	logger.Println("Client finished.")
 	logger.Println("--------------------------------------------------")
 

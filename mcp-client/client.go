@@ -146,6 +146,46 @@ func (c *Client) NotifyInitialized() error {
 	return nil
 }
 
+// ListResources sends a resources/list request and returns the result.
+func (c *Client) ListResources(params *mcp.ListResourcesParams) (*mcp.ListResourcesResult, error) {
+	c.logger.Println("Sending resources/list request...")
+	id := c.nextID()
+
+	reqBytes, err := mcp.MarshalListResourcesRequest(id, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resources/list request: %w", err)
+	}
+
+	// Send the request
+	if err := c.sendRaw(reqBytes); err != nil {
+		return nil, fmt.Errorf("failed to send resources/list request: %w", err)
+	}
+
+	// Read the response
+	respBytes, err := readMessage(c.reader, c.logger) // Using transport function
+	if err != nil {
+		return nil, fmt.Errorf("failed to read resources/list response: %w", err)
+	}
+
+	// Unmarshal the response
+	result, respID, rpcErr, parseErr := mcp.UnmarshalListResourcesResponse(respBytes)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse resources/list response: %w", parseErr)
+	}
+	if rpcErr != nil {
+		return nil, fmt.Errorf("received RPC error for resources/list: %w", rpcErr)
+	}
+
+	// Check ID match
+	if !compareRequestIDs(id, respID) {
+		c.logger.Printf("Warning: resources/list response ID mismatch. Got %v (%T), expected %v (%T)", respID, respID, id, id)
+		return nil, fmt.Errorf("resources/list response ID mismatch: got %v, expected %v", respID, id)
+	}
+
+	c.logger.Printf("Received resources/list response (ID: %v). Result: %+v", respID, result)
+	return result, nil
+}
+
 // sendRaw sends pre-marshalled bytes with headers to the server.
 func (c *Client) sendRaw(payload []byte) error {
 	c.mu.Lock()
