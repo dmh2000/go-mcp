@@ -28,18 +28,6 @@ type RPCResponse struct {
 	ID      RequestID       `json:"id"`
 }
 
-// RPCError defines the structure for a JSON-RPC error object.
-type RPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
-
-// Error implements the error interface for RPCError.
-func (e *RPCError) Error() string {
-	return fmt.Sprintf("RPC error %d: %s", e.Code, e.Message)
-}
-
 // Role defines the sender or recipient of messages and data.
 type Role string
 
