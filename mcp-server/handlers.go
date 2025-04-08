@@ -200,6 +200,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
+	s.logger.Printf("ReadResource base request unmarshalled: %+v", req) // Added log line
 	paramsRaw, ok := req.Params.(json.RawMessage)
 	if !ok {
 		err := fmt.Errorf("read resource request params is not a raw message")
