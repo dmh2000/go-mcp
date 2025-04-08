@@ -88,3 +88,10 @@ The server will return an appropriate 'error' message from the list in pkg/mcp/e
 add a new file mcp-server/resources.go. in this file add a function. RandomData that is given a parameter for length and it returns a string of random ASCII characters of that length and an error. 
 if length is less than or equal to 0 return an error. if the length is greater than 1024 characters, return an error.
 use the crypto/rand function for the random data. remove bias from the output using rejection sampling. 
+
+create an mcp 'resource' with 
+- uri data://random_data?length=n 
+- name 'random_data', 
+- description  'returns a string of random characters of length 'n'"
+mime type: 'text/plain'. 
+the random_data resource will use the the RandomData function from resources.go to generate a string of random characters of length 'n' as specifed in the uri. add this to the resources/list and resources/read responses.

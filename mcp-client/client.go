@@ -78,11 +78,11 @@ func (c *Client) Initialize(protocolVersion string, clientInfo mcp.Implementatio
 		return nil, fmt.Errorf("received RPC error during initialize: %w", rpcErr)
 	}
 
-	// Compare IDs using the helper function
-	if !compareRequestIDs(id, respID) {
+	// request id's can be int64 or string, but json marshalling return float64, so fix it
+	match := compareRequestIDs(id, respID)
+	if !match {
 		c.logger.Printf("Warning: Initialize response ID mismatch. Got %v (%T), expected %v (%T)", respID, respID, id, id)
-		// Decide if this is fatal. For initialize, it probably should be.
-		// return nil, fmt.Errorf("initialize response ID mismatch: got %v, expected %v", respID, id)
+		return nil, fmt.Errorf("initialize response ID mismatch: got %v, expected %v", respID, id)
 	}
 
 	c.logger.Printf("Received initialize response (ID: %v). Result: %+v", respID, result)
@@ -98,24 +98,19 @@ func (c *Client) Initialize(protocolVersion string, clientInfo mcp.Implementatio
 
 // compareRequestIDs checks if the received response ID matches the expected request ID,
 // handling potential type differences (e.g., int64 vs float64 from JSON).
-func compareRequestIDs(expectedID int64, receivedID mcp.RequestID) bool {
-	var match bool
+func compareRequestIDs(id mcp.RequestID, receivedID mcp.RequestID) bool {
+	var match = true
 	switch rid := receivedID.(type) {
 	case float64:
-		// Check if the float64 represents the int64 request ID exactly
-		if rid == float64(expectedID) {
-			match = true
+		// convert float to int64
+		newID := mcp.RequestID(int64(rid))
+		if newID != id {
+			match = false
 		}
 	case int64:
-		// This case might occur if the JSON library unmarshals as int64
-		if rid == expectedID {
-			match = true
-		}
-	// Add case for string if client might generate string IDs in the future
-	// case string:
-	//     if sId, ok := expectedID.(string); ok && rid == sId { // Note: expectedID is int64 here
-	//         match = true
-	//     }
+		match = true
+	case string:
+		match = true
 	default:
 		// Type mismatch or unexpected type (e.g., nil)
 		match = false
@@ -173,11 +168,10 @@ func (c *Client) sendRaw(payload []byte) error {
 		if err := flusher.Flush(); err != nil {
 			c.logger.Printf("Warning: failed to flush writer after sending message: %v", err)
 		}
-	} else if f, ok := c.writer.(interface { Sync() error }); ok {
+	} else if f, ok := c.writer.(interface{ Sync() error }); ok {
 		// Pipes might implement Sync
 		_ = f.Sync()
 	}
-
 
 	return nil
 }

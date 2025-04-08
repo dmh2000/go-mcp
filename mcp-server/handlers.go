@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url" // Added for URI parsing
 	"strconv" // Added for string conversion
+	"strings"
 
 	// Keep log import
 	// Use the absolute module path

@@ -10,8 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"net/textproto"
-	"os" // Not strictly needed here, but kept for consistency
+	"net/textproto" // Not strictly needed here, but kept for consistency
 	"strconv"
 	"strings"
 
@@ -54,7 +53,7 @@ func writeMessage(writer io.Writer, message interface{}, logger *log.Logger) err
 		if err := flusher.Flush(); err != nil {
 			logger.Printf("Warning: failed to flush writer after sending message: %v", err)
 		}
-	} else if f, ok := writer.(interface { Sync() error }); ok {
+	} else if f, ok := writer.(interface{ Sync() error }); ok {
 		// Pipes might implement Sync
 		_ = f.Sync()
 	}
