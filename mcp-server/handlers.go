@@ -102,7 +102,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	result := mcp.InitializeResult{
 		ProtocolVersion: s.serverVersion,
 		ServerInfo:      s.serverInfo,
-		Capabilities:    mcp.ServerCapabilities{
+		Capabilities: mcp.ServerCapabilities{
 			// Explicitly state no capabilities initially.
 			// Explicitly state capabilities.
 			// Logging:   map[string]interface{}{}, // Example: Empty object indicates basic support
