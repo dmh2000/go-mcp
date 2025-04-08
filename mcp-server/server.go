@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	notificationInitialized = "initialized"    // Standard notification method from client after initialize response
-	headerContentLength     = "Content-Length" // Duplicated from transport.go for sendRawMessage
+	notificationInitialized = "initialized" // Standard notification method from client after initialize response
+	// headerContentLength is defined in transport.go
 )
 
 // Server handles the MCP communication logic.
