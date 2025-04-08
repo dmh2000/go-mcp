@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 )
 
 const (
@@ -14,7 +13,6 @@ const (
 	asciiEnd   = 126 // Tilde (~)
 	asciiRange = asciiEnd - asciiStart + 1
 )
-
 
 // RandomData generates a cryptographically secure random string of ASCII characters
 // of the specified length using rejection sampling on raw bytes.
