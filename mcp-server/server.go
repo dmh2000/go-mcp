@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +15,9 @@ import (
 )
 
 const (
-	notificationInitialized = "initialized" // Standard notification method from client after initialize response
+	notificationInitialized = "initialized"    // Standard notification method from client after initialize response
 	headerContentLength     = "Content-Length" // Duplicated from transport.go for sendRawMessage
 )
-
 
 // Server handles the MCP communication logic.
 type Server struct {
@@ -237,7 +237,6 @@ func (s *Server) processMessage(payload []byte) {
 	}
 }
 
-
 // sendRawMessage sends pre-marshalled bytes with headers.
 func (s *Server) sendRawMessage(payload []byte) error {
 	s.mu.Lock()
@@ -262,7 +261,6 @@ func (s *Server) sendRawMessage(payload []byte) error {
 		return fmt.Errorf("incomplete message write (wrote %d/%d bytes)", n, buf.Len())
 	}
 
-
 	// Flush if the writer supports it (e.g., bufio.Writer, os.Stdout might need it)
 	if f, ok := s.writer.(*os.File); ok {
 		// Syncing stdout might be overkill/ineffective depending on OS/terminal.
@@ -278,7 +276,6 @@ func (s *Server) sendRawMessage(payload []byte) error {
 	return nil
 }
 
-
 // sendResponse marshals a successful result into a full RPCResponse and sends it.
 // Returns the marshalled bytes and any error during marshalling.
 // It does *not* send the bytes itself.
@@ -290,11 +287,11 @@ func (s *Server) marshalResponse(id mcp.RequestID, result interface{}) ([]byte, 
 		// Return bytes for an internal error instead
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal response result", nil)
 		errorBytes, marshalErr := mcp.MarshalErrorResponse(id, rpcErr)
-        // If we can't even marshal the error, return the original error and nil bytes
-        if marshalErr != nil {
-             s.logger.Printf("CRITICAL: Failed to marshal error response for result marshalling failure: %v", marshalErr)
-             return nil, err // Return the original marshalling error
-        }
+		// If we can't even marshal the error, return the original error and nil bytes
+		if marshalErr != nil {
+			s.logger.Printf("CRITICAL: Failed to marshal error response for result marshalling failure: %v", marshalErr)
+			return nil, err // Return the original marshalling error
+		}
 		return errorBytes, err // Return the marshalled error bytes and the original error
 	}
 
@@ -311,10 +308,10 @@ func (s *Server) marshalResponse(id mcp.RequestID, result interface{}) ([]byte, 
 		// Return bytes for an internal error instead
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal final response object", nil)
 		errorBytes, marshalErr := mcp.MarshalErrorResponse(id, rpcErr)
-        if marshalErr != nil {
-             s.logger.Printf("CRITICAL: Failed to marshal error response for final response marshalling failure: %v", marshalErr)
-             return nil, err // Return the original marshalling error
-        }
+		if marshalErr != nil {
+			s.logger.Printf("CRITICAL: Failed to marshal error response for final response marshalling failure: %v", marshalErr)
+			return nil, err // Return the original marshalling error
+		}
 		return errorBytes, err // Return the marshalled error bytes and the original error
 	}
 
