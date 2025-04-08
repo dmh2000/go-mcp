@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 )
@@ -75,7 +76,9 @@ func randomDataWithRejectionSampling(length int) (string, error) {
 		// Read a batch of random bytes. Adjust batch size as needed for efficiency.
 		// Reading more bytes at once reduces the overhead of calling rand.Read.
 		bufferSize := bytesNeeded * 2 // Read more than strictly needed to reduce calls
-		if bufferSize < 16 { bufferSize = 16 } // Minimum buffer size
+		if bufferSize < 16 {
+			bufferSize = 16
+		} // Minimum buffer size
 		randomBytes := make([]byte, bufferSize)
 
 		n, err := io.ReadFull(rand.Reader, randomBytes)
