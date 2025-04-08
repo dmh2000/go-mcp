@@ -186,6 +186,46 @@ func (c *Client) ListResources(params *mcp.ListResourcesParams) (*mcp.ListResour
 	return result, nil
 }
 
+// ReadResource sends a resources/read request and returns the result.
+func (c *Client) ReadResource(params mcp.ReadResourceParams) (*mcp.ReadResourceResult, error) {
+	c.logger.Printf("Sending resources/read request for URI: %s...", params.URI)
+	id := c.nextID()
+
+	reqBytes, err := mcp.MarshalReadResourcesRequest(id, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resources/read request: %w", err)
+	}
+
+	// Send the request
+	if err := c.sendRaw(reqBytes); err != nil {
+		return nil, fmt.Errorf("failed to send resources/read request: %w", err)
+	}
+
+	// Read the response
+	respBytes, err := readMessage(c.reader, c.logger) // Using transport function
+	if err != nil {
+		return nil, fmt.Errorf("failed to read resources/read response: %w", err)
+	}
+
+	// Unmarshal the response
+	result, respID, rpcErr, parseErr := mcp.UnmarshalReadResourcesResponse(respBytes)
+	if parseErr != nil {
+		return nil, fmt.Errorf("failed to parse resources/read response: %w", parseErr)
+	}
+	if rpcErr != nil {
+		return nil, fmt.Errorf("received RPC error for resources/read: %w", rpcErr)
+	}
+
+	// Check ID match
+	if !compareRequestIDs(id, respID) {
+		c.logger.Printf("Warning: resources/read response ID mismatch. Got %v (%T), expected %v (%T)", respID, respID, id, id)
+		return nil, fmt.Errorf("resources/read response ID mismatch: got %v, expected %v", respID, id)
+	}
+
+	c.logger.Printf("Received resources/read response (ID: %v). Result: %+v", respID, result) // Log the raw result structure
+	return result, nil
+}
+
 // sendRaw sends pre-marshalled bytes with headers to the server.
 func (c *Client) sendRaw(payload []byte) error {
 	c.mu.Lock()

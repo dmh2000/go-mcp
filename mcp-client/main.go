@@ -136,6 +136,38 @@ func main() {
 		logger.Printf("  (Pagination cursor available: %s)", listResult.NextCursor)
 	}
 
+	// --- Read Resource (Random Data) ---
+	logger.Println("Requesting random data resource from server...")
+	randomDataURI := "data://random_data?length=8"
+	readParams := mcp.ReadResourceParams{URI: randomDataURI}
+	readResult, err := client.ReadResource(readParams)
+	if err != nil {
+		logger.Fatalf("Failed to read resource '%s': %v", randomDataURI, err)
+	}
+
+	logger.Printf("Successfully read resource '%s':", randomDataURI)
+	if len(readResult.Contents) == 0 {
+		logger.Println("  (No content returned by server)")
+	} else {
+		for i, rawContent := range readResult.Contents {
+			// Attempt to unmarshal as TextResourceContents
+			var textContent mcp.TextResourceContents
+			if err := json.Unmarshal(rawContent, &textContent); err == nil && textContent.Text != "" {
+				logger.Printf("  - Content[%d] (Text): URI=%s, MimeType=%s, Text='%s'",
+					i, textContent.URI, textContent.MimeType, textContent.Text)
+			} else {
+				// Attempt to unmarshal as BlobResourceContents (or log raw)
+				var blobContent mcp.BlobResourceContents
+				if err := json.Unmarshal(rawContent, &blobContent); err == nil && blobContent.Blob != "" {
+					logger.Printf("  - Content[%d] (Blob): URI=%s, MimeType=%s, Blob='%s...'",
+						i, blobContent.URI, blobContent.MimeType, blobContent.Blob[:min(len(blobContent.Blob), 20)]) // Log truncated blob
+				} else {
+					logger.Printf("  - Content[%d] (Unknown/Raw): %s", i, string(rawContent))
+				}
+			}
+		}
+	}
+
 	logger.Println("Client finished.")
 	logger.Println("--------------------------------------------------")
 
