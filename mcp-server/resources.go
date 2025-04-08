@@ -15,55 +15,11 @@ const (
 	asciiRange = asciiEnd - asciiStart + 1
 )
 
+
 // RandomData generates a cryptographically secure random string of ASCII characters
-// of the specified length. It uses rejection sampling to ensure uniform distribution
-// across the printable ASCII range (32-126).
+// of the specified length using rejection sampling on raw bytes.
 // Returns an error if length <= 0 or if reading random data fails.
 func RandomData(length int) (string, error) {
-	if length <= 0 {
-		return "", errors.New("length must be positive")
-	}
-
-	result := make([]byte, length)
-	max := big.NewInt(int64(asciiRange)) // The number of possible characters
-
-	for i := 0; i < length; {
-		// Generate a random number within the range [0, asciiRange)
-		// Use crypto/rand for secure random numbers
-		n, err := rand.Int(rand.Reader, max)
-		if err != nil {
-			// Check for specific errors like io.EOF or io.ErrUnexpectedEOF if needed,
-			// but generally, any error from crypto/rand is serious.
-			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-				return "", fmt.Errorf("failed to read enough random data (EOF): %w", err)
-			}
-			return "", fmt.Errorf("failed to generate random number: %w", err)
-		}
-
-		// Add the offset to map the random number to the printable ASCII range
-		char := byte(n.Int64() + asciiStart)
-
-		// Although rand.Int should give uniform distribution within [0, max),
-		// double-check it's within our expected ASCII bounds just in case.
-		// This check is technically redundant if rand.Int works as expected,
-		// but adds a layer of safety.
-		if char >= asciiStart && char <= asciiEnd {
-			result[i] = char
-			i++ // Only increment if we successfully added a character
-		}
-		// No explicit rejection needed here because rand.Int already provides
-		// uniform distribution within the desired range [0, asciiRange).
-		// If we were reading raw bytes and mapping, rejection sampling would be
-		// necessary to avoid bias if the range wasn't a power of 2.
-	}
-
-	return string(result), nil
-}
-
-// --- Example of rejection sampling if reading raw bytes ---
-// This version reads raw bytes and uses rejection sampling.
-// It's slightly less efficient than using rand.Int directly for this specific range.
-func randomDataWithRejectionSampling(length int) (string, error) {
 	if length <= 0 {
 		return "", errors.New("length must be positive")
 	}
