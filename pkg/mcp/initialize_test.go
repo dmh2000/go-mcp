@@ -113,8 +113,7 @@ func TestUnmarshalInitializeResponse(t *testing.T) {
 			}{ListChanged: true},
 			Resources: &struct {
 				ListChanged bool `json:"listChanged,omitempty"`
-				Subscribe   bool `json:"subscribe,omitempty"`
-			}{Subscribe: true, ListChanged: true},
+			}{ListChanged: true},
 			Tools: &struct {
 				ListChanged bool `json:"listChanged,omitempty"`
 			}{ListChanged: true},

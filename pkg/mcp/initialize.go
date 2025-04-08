@@ -49,7 +49,6 @@ type ServerCapabilities struct {
 	// Resources indicates support for resources.
 	Resources *struct {
 		ListChanged bool `json:"listChanged,omitempty"`
-		Subscribe   bool `json:"subscribe,omitempty"`
 	} `json:"resources,omitempty"`
 	// Tools indicates support for tools.
 	Tools *struct {

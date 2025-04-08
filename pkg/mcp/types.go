@@ -2,8 +2,6 @@ package mcp
 
 import (
 	"encoding/json"
-	"fmt"
-	"reflect"
 )
 
 // JSONRPCVersion is the fixed JSON-RPC version string.
