@@ -201,17 +201,21 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		return s.marshalErrorResponse(id, rpcErr)
 	}
 	s.logger.Printf("ReadResource base request unmarshalled: %+v", req) // Added log line
-	paramsRaw, ok := req.Params.(json.RawMessage)
-	if !ok {
-		err := fmt.Errorf("read resource request params is not a raw message")
+
+	// Marshal the params interface{} back to bytes
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		err = fmt.Errorf("failed to re-marshal read resource params: %w", err)
 		s.logger.Println(err.Error())
-		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, err.Error(), nil)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil) // InvalidParams as structure was likely wrong
 		return s.marshalErrorResponse(id, rpcErr)
 	}
-	if err := json.Unmarshal(paramsRaw, &params); err != nil {
-		err = fmt.Errorf("failed to unmarshal read resource params: %w", err)
+
+	// Now unmarshal the bytes into the specific params struct
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		err = fmt.Errorf("failed to unmarshal specific read resource params: %w", err)
 		s.logger.Println(err.Error())
-		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil) // InvalidParams as content was wrong
 		return s.marshalErrorResponse(id, rpcErr)
 	}
 
