@@ -104,13 +104,13 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		ServerInfo:      s.serverInfo,
 		Capabilities:    mcp.ServerCapabilities{
 			// Explicitly state no capabilities initially.
-			// To enable later, uncomment and potentially configure:
-			// Logging:   map[string]interface{}{}, // Empty object indicates basic support
-			// Prompts:   &mcp.ServerCapabilitiesPrompts{ListChanged: false}, // Use pointer struct from schema/types
-			// Resources: &mcp.ServerCapabilitiesResources{ListChanged: false, Subscribe: false}, // Use pointer struct
-			// Tools:     &mcp.ServerCapabilitiesTools{ListChanged: false}, // Use pointer struct
+			// Explicitly state capabilities.
+			// Logging:   map[string]interface{}{}, // Example: Empty object indicates basic support
+			// Prompts:   &mcp.ServerCapabilitiesPrompts{ListChanged: false}, // Example: Use pointer struct from schema/types
+			Resources: &mcp.ServerCapabilitiesResources{ListChanged: false, Subscribe: false}, // Announce resource support
+			// Tools:     &mcp.ServerCapabilitiesTools{ListChanged: false}, // Example: Use pointer struct
 		},
-		Instructions: "Welcome to the Go MCP Example Server! Currently, no tools, prompts, or resources are enabled.", // Optional
+		Instructions: "Welcome to the Go MCP Example Server! The 'random_data' resource is available via resources/read.", // Optional, updated instructions
 	}
 
 	// Marshal the successful response using the server's helper
