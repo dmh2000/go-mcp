@@ -107,16 +107,10 @@ func TestUnmarshalInitializeResponse(t *testing.T) {
 	sampleResult := InitializeResult{
 		ProtocolVersion: "2024-11-05",
 		Capabilities: ServerCapabilities{
-			Logging: map[string]interface{}{},
-			Prompts: &struct {
-				ListChanged bool `json:"listChanged,omitempty"`
-			}{ListChanged: true},
-			Resources: &struct {
-				ListChanged bool `json:"listChanged,omitempty"`
-			}{ListChanged: true},
-			Tools: &struct {
-				ListChanged bool `json:"listChanged,omitempty"`
-			}{ListChanged: true},
+			Logging:   map[string]interface{}{},
+			Prompts:   &ServerCapabilitiesPrompts{ListChanged: true},
+			Resources: &ServerCapabilitiesResources{ListChanged: true, Subscribe: false}, // Updated to use the new struct
+			Tools:     &ServerCapabilitiesTools{ListChanged: true},
 		},
 		ServerInfo: Implementation{
 			Name:    "ExampleServer",

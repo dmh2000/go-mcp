@@ -47,11 +47,25 @@ type ServerCapabilities struct {
 		ListChanged bool `json:"listChanged,omitempty"`
 	} `json:"prompts,omitempty"`
 	// Resources indicates support for resources.
-	Resources *struct {
-		ListChanged bool `json:"listChanged,omitempty"`
-	} `json:"resources,omitempty"`
+	Resources *ServerCapabilitiesResources `json:"resources,omitempty"`
 	// Tools indicates support for tools.
-	Tools *struct {
+	Tools *ServerCapabilitiesTools `json:"tools,omitempty"`
+	// Add other capabilities like completion if needed.
+}
+
+// ServerCapabilitiesPrompts defines specific capabilities related to prompts.
+type ServerCapabilitiesPrompts struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+}
+
+// ServerCapabilitiesResources defines specific capabilities related to resources.
+type ServerCapabilitiesResources struct {
+	ListChanged bool `json:"listChanged,omitempty"`
+	Subscribe   bool `json:"subscribe,omitempty"` // Added subscribe capability
+}
+
+// ServerCapabilitiesTools defines specific capabilities related to tools.
+type ServerCapabilitiesTools struct {
 		ListChanged bool `json:"listChanged,omitempty"`
 	} `json:"tools,omitempty"`
 	// Add other capabilities like completion if needed.
