@@ -78,30 +78,8 @@ func (c *Client) Initialize(protocolVersion string, clientInfo mcp.Implementatio
 		return nil, fmt.Errorf("received RPC error during initialize: %w", rpcErr)
 	}
 
-	// Compare IDs, handling potential float64 from JSON unmarshal
-	var match bool
-	switch rid := respID.(type) {
-	case float64:
-		// Check if the float64 represents the int64 request ID exactly
-		if rid == float64(id) {
-			match = true
-		}
-	case int64:
-		// This case might occur if the JSON library unmarshals as int64
-		if rid == id {
-			match = true
-		}
-	// Add case for string if client might generate string IDs in the future
-	// case string:
-	//     if sId, ok := id.(string); ok && rid == sId {
-	//         match = true
-	//     }
-	default:
-		// Type mismatch or unexpected type (e.g., nil)
-		match = false
-	}
-
-	if !match {
+	// Compare IDs using the helper function
+	if !compareRequestIDs(id, respID) {
 		c.logger.Printf("Warning: Initialize response ID mismatch. Got %v (%T), expected %v (%T)", respID, respID, id, id)
 		// Decide if this is fatal. For initialize, it probably should be.
 		// return nil, fmt.Errorf("initialize response ID mismatch: got %v, expected %v", respID, id)
@@ -116,6 +94,33 @@ func (c *Client) Initialize(protocolVersion string, clientInfo mcp.Implementatio
 	}
 
 	return &result.Capabilities, nil
+}
+
+// compareRequestIDs checks if the received response ID matches the expected request ID,
+// handling potential type differences (e.g., int64 vs float64 from JSON).
+func compareRequestIDs(expectedID int64, receivedID mcp.RequestID) bool {
+	var match bool
+	switch rid := receivedID.(type) {
+	case float64:
+		// Check if the float64 represents the int64 request ID exactly
+		if rid == float64(expectedID) {
+			match = true
+		}
+	case int64:
+		// This case might occur if the JSON library unmarshals as int64
+		if rid == expectedID {
+			match = true
+		}
+	// Add case for string if client might generate string IDs in the future
+	// case string:
+	//     if sId, ok := expectedID.(string); ok && rid == sId { // Note: expectedID is int64 here
+	//         match = true
+	//     }
+	default:
+		// Type mismatch or unexpected type (e.g., nil)
+		match = false
+	}
+	return match
 }
 
 // NotifyInitialized sends the initialized notification to the server.
