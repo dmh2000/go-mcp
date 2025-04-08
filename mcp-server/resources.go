@@ -12,14 +12,20 @@ const (
 	asciiStart = 32  // Space
 	asciiEnd   = 126 // Tilde (~)
 	asciiRange = asciiEnd - asciiStart + 1
+
+	// Define the maximum allowed length for random data generation
+	maxRandomDataLength = 1024
 )
 
 // RandomData generates a cryptographically secure random string of ASCII characters
 // of the specified length using rejection sampling on raw bytes.
-// Returns an error if length <= 0 or if reading random data fails.
+// Returns an error if length <= 0, length exceeds maxRandomDataLength, or if reading random data fails.
 func RandomData(length int) (string, error) {
 	if length <= 0 {
 		return "", errors.New("length must be positive")
+	}
+	if length > maxRandomDataLength {
+		return "", fmt.Errorf("requested length %d exceeds maximum allowed length %d", length, maxRandomDataLength)
 	}
 
 	result := make([]byte, length)
