@@ -40,8 +40,7 @@ func TestMarshalInitializeRequest(t *testing.T) {
 					"capabilities": {
 						"roots": {
 							"listChanged": true
-						},
-						"sampling": {}
+						}
 					},
 					"clientInfo": {
 						"name": "ExampleClient",
