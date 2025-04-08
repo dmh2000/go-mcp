@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/url" // Added for URI parsing
+	"strconv" // Added for string conversion
 
 	// Keep log import
 	// Use the absolute module path
@@ -165,18 +167,122 @@ func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, erro
 
 func (s *Server) handleListResources(id mcp.RequestID, payload []byte) ([]byte, error) {
 	s.logger.Printf("Handling resources/list request (ID: %v)", id)
-	// TODO: Implement actual resource listing logic.
+
+	// Define the static random_data resource
+	randomDataResource := mcp.Resource{
+		Name:        "random_data",
+		URI:         "data://random_data", // Base URI for the resource type
+		Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
+		MimeType:    "text/plain",
+		// Size is unknown until length is specified
+	}
+
+	// TODO: Add other resources here if needed
+	resources := []mcp.Resource{randomDataResource}
+
 	result := mcp.ListResourcesResult{
-		Resources: []mcp.Resource{},
-		// NextCursor: "",
+		Resources: resources,
+		// NextCursor: "", // Implement pagination if needed
 	}
 	return s.marshalResponse(id, result)
 }
 
 func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, error) {
-	s.logger.Printf("Handling resources/read request (ID: %v) - Not Implemented", id)
-	// TODO: Implement resource reading logic.
-	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'resources/read' not implemented", nil)
+	s.logger.Printf("Handling resources/read request (ID: %v)", id)
+
+	var req mcp.RPCRequest
+	var params mcp.ReadResourceParams
+	if err := json.Unmarshal(payload, &req); err != nil {
+		err = fmt.Errorf("failed to unmarshal base read resource request: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+	paramsRaw, ok := req.Params.(json.RawMessage)
+	if !ok {
+		err := fmt.Errorf("read resource request params is not a raw message")
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+	if err := json.Unmarshal(paramsRaw, &params); err != nil {
+		err = fmt.Errorf("failed to unmarshal read resource params: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	s.logger.Printf("ReadResource request URI: %s", params.URI)
+
+	// Parse the URI
+	parsedURI, err := url.Parse(params.URI)
+	if err != nil {
+		err = fmt.Errorf("failed to parse resource URI '%s': %w", params.URI, err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Check if it's the random_data resource
+	if parsedURI.Scheme == "data" && parsedURI.Host == "random_data" {
+		// Get the length parameter
+		lengthStr := parsedURI.Query().Get("length")
+		if lengthStr == "" {
+			err = fmt.Errorf("missing 'length' query parameter in URI: %s", params.URI)
+			s.logger.Println(err.Error())
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+			return s.marshalErrorResponse(id, rpcErr)
+		}
+
+		length, err := strconv.Atoi(lengthStr)
+		if err != nil {
+			err = fmt.Errorf("invalid 'length' query parameter '%s': %w", lengthStr, err)
+			s.logger.Println(err.Error())
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+			return s.marshalErrorResponse(id, rpcErr)
+		}
+
+		// Generate random data using the function from resources.go
+		randomString, err := RandomData(length)
+		if err != nil {
+			// RandomData already logs details, just wrap the error for the RPC response
+			err = fmt.Errorf("failed to generate random data for URI %s: %w", params.URI, err)
+			s.logger.Println(err.Error())
+			// Check if the error was due to invalid length (positive, max)
+			if errors.Is(err, errors.New("length must be positive")) || strings.Contains(err.Error(), "exceeds maximum allowed length") {
+				rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+				return s.marshalErrorResponse(id, rpcErr)
+			}
+			// Otherwise, treat as internal error
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
+			return s.marshalErrorResponse(id, rpcErr)
+		}
+
+		// Prepare the result content
+		content := mcp.TextResourceContents{
+			URI:      params.URI,
+			MimeType: "text/plain",
+			Text:     randomString,
+		}
+		contentBytes, err := json.Marshal(content)
+		if err != nil {
+			err = fmt.Errorf("failed to marshal TextResourceContents for %s: %w", params.URI, err)
+			s.logger.Println(err.Error())
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
+			return s.marshalErrorResponse(id, rpcErr)
+		}
+
+		result := mcp.ReadResourceResult{
+			Contents: []json.RawMessage{json.RawMessage(contentBytes)},
+		}
+		return s.marshalResponse(id, result)
+
+	}
+
+	// --- Handle other resources here ---
+	// If the URI doesn't match known resources:
+	s.logger.Printf("Resource URI '%s' not found", params.URI)
+	rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, fmt.Sprintf("Resource URI '%s' not found or supported", params.URI), nil) // Using InvalidParams as resource wasn't found
 	return s.marshalErrorResponse(id, rpcErr)
 }
 
