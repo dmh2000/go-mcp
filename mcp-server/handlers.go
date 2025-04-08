@@ -202,6 +202,13 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 	}
 	s.logger.Printf("ReadResource base request unmarshalled: %+v", req) // Added log line
 
+	// Explanation: While req.Params could be accessed directly as map[string]interface{},
+	// re-marshalling and then unmarshalling into the specific params struct provides:
+	// 1. Consistency with other handlers (e.g., initialize).
+	// 2. Implicit validation against the expected struct (ReadResourceParams).
+	// 3. Better maintainability if the params struct evolves.
+	// 4. Type safety in subsequent code using the 'params' variable.
+
 	// Marshal the params interface{} back to bytes
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
