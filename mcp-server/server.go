@@ -249,15 +249,15 @@ func (s *Server) processMessage(payload []byte) {
 		responseBytes, handleErr = s.marshalErrorResponse(id, rpcErr) // Use helper
 
 	case mcp.MethodListTools:
-		responseBytes, handleErr = s.handleListTools(id, payload)
+		responseBytes, handleErr = s.handleListTools(id)
 	case mcp.MethodCallTool:
-		responseBytes, handleErr = s.handleCallTool(id, payload)
+		responseBytes, handleErr = s.handleCallTool(id)
 	case mcp.MethodListPrompts:
-		responseBytes, handleErr = s.handleListPrompts(id, payload)
+		responseBytes, handleErr = s.handleListPrompts(id)
 	case mcp.MethodGetPrompt:
-		responseBytes, handleErr = s.handleGetPrompt(id, payload)
+		responseBytes, handleErr = s.handleGetPrompt(id)
 	case mcp.MethodListResources:
-		responseBytes, handleErr = s.handleListResources(id, payload)
+		responseBytes, handleErr = s.handleListResources(id)
 	case mcp.MethodReadResource:
 		responseBytes, handleErr = s.handleReadResource(id, payload)
 	// Add cases for other supported methods like ping, logging/setLevel, etc.
