@@ -28,17 +28,21 @@ type Server struct {
 	initialized   bool
 	serverVersion string
 	serverInfo    mcp.Implementation
+	incomingMessages chan []byte // Channel for incoming message payloads
+	shutdown      chan struct{} // Channel to signal shutdown
 	// Add state for resources, tools, prompts later
 }
 
 // NewServer creates a new MCP server instance.
 func NewServer(reader io.Reader, writer io.Writer, logger *log.Logger) *Server {
 	return &Server{
-		reader:        bufio.NewReader(reader),
-		writer:        writer,
-		logger:        logger,
-		initialized:   false,
-		serverVersion: "2024-11-05", // Align with your spec/schema version
+		reader:           bufio.NewReader(reader),
+		writer:           writer,
+		logger:           logger,
+		initialized:      false,
+		serverVersion:    "2024-11-05", // Align with your spec/schema version
+		incomingMessages: make(chan []byte, 10), // Buffered channel
+		shutdown:         make(chan struct{}),
 		serverInfo: mcp.Implementation{
 			Name:    "GoMCPExampleServer",
 			Version: "0.1.0", // Example version
@@ -59,21 +63,56 @@ func (s *Server) Run() error {
 	s.logger.Println("Initialization complete. Entering main request loop.")
 	s.initialized = true
 
-	// 2. Main Request Loop
+	// 2. Start background reader loop
+	go s.readLoop()
+
+	// 3. Main processing loop
+	s.logger.Println("Entering main processing loop.")
+	for {
+		select {
+		case payload := <-s.incomingMessages:
+			// Process the received message
+			// Consider running in a separate goroutine for full concurrency: go s.processMessage(payload)
+			// For simplicity now, process sequentially in the main loop.
+			s.processMessage(payload)
+		case <-s.shutdown:
+			s.logger.Println("Shutdown signal received. Exiting processing loop.")
+			return nil // Normal shutdown
+		}
+	}
+}
+
+// readLoop continuously reads messages from the transport and sends them to the incomingMessages channel.
+// It exits when readMessage returns an error (like io.EOF).
+func (s *Server) readLoop() {
+	defer func() {
+		s.logger.Println("Exiting read loop.")
+		close(s.shutdown) // Signal the main loop to shut down when reading stops
+	}()
+	s.logger.Println("Starting read loop.")
 	for {
 		payload, err := readMessage(s.reader, s.logger)
 		if err != nil {
 			if err == io.EOF {
-				s.logger.Println("Client closed connection (EOF). Exiting.")
-				return nil // Clean exit
+				s.logger.Println("Client closed connection (EOF). Read loop finished.")
+				// Normal termination, signal shutdown
+			} else {
+				// Log other read errors
+				s.logger.Printf("Error reading message in readLoop: %v.", err)
+				// Depending on the error, might want to signal shutdown or try to recover
 			}
-			s.logger.Printf("Error reading message: %v. Exiting.", err)
-			// Treat read errors in the main loop as fatal for now
-			return fmt.Errorf("error reading message: %w", err)
+			return // Exit loop on any error
 		}
 
-		// Process the received message
-		s.processMessage(payload)
+		// Send payload to the processing loop
+		select {
+		case s.incomingMessages <- payload:
+			// Message sent successfully
+		case <-s.shutdown:
+			// Shutdown signal received while trying to send, discard message and exit
+			s.logger.Println("Shutdown signal received during message send in readLoop. Discarding message.")
+			return
+		}
 	}
 }
 
