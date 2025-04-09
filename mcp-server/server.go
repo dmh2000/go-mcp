@@ -105,6 +105,9 @@ func (s *Server) readLoop() {
 			s.logger.Println("Shutdown signal received during message send in readLoop. Discarding message.")
 			return
 		}
+	} // <--- Add missing closing brace for readLoop here
+}
+
 // processMessage determines the type of message and routes it appropriately.
 // It also handles the initial state transitions (waiting for initialize, waiting for initialized).
 func (s *Server) processMessage(payload []byte) {
