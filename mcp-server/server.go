@@ -52,18 +52,10 @@ func NewServer(reader io.Reader, writer io.Writer, logger *log.Logger) *Server {
 
 // Run starts the server's main loop.
 func (s *Server) Run() error {
-	s.logger.Println("Server Run() started. Waiting for initialize request...")
+	s.logger.Println("Server Run() started.")
+	s.initialized = false // Ensure server starts in non-initialized state
 
-	// 1. Handle Initialization
-	if err := s.performInitialization(); err != nil {
-		s.logger.Printf("Initialization failed: %v", err)
-		return fmt.Errorf("initialization failed: %w", err)
-	}
-
-	s.logger.Println("Initialization complete. Entering main request loop.")
-	s.initialized = true
-
-	// 2. Start background reader loop
+	// 1. Start background reader loop immediately
 	go s.readLoop()
 
 	// 3. Main processing loop
@@ -113,96 +105,65 @@ func (s *Server) readLoop() {
 			s.logger.Println("Shutdown signal received during message send in readLoop. Discarding message.")
 			return
 		}
-	}
-}
-
-// performInitialization handles the initial handshake.
-func (s *Server) performInitialization() error {
-	// Wait for the first message, expecting "initialize"
-	payload, err := readMessage(s.reader, s.logger)
-	if err != nil {
-		if err == io.EOF {
-			return fmt.Errorf("client disconnected before sending initialize request")
-		}
-		return fmt.Errorf("error reading initial message: %w", err)
-	}
-
-	// Peek to check if it's an initialize request
-	method, id, isNotification, isResponse, _ := peekMessageType(payload)
-
-	// Strict check: Must be a request with method "initialize"
-	if isNotification || isResponse || method != mcp.MethodInitialize || id == nil {
-		err := fmt.Errorf("expected '%s' request first, but got method '%s' (notification: %t, response: %t, id: %v)", mcp.MethodInitialize, method, isNotification, isResponse, id)
-		s.logger.Println(err.Error())
-		// Try to send an error response if we have an ID (which we should for a request)
-		if id != nil {
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, err.Error(), nil)
-			// Marshal and send the error response directly here
-			errorBytes, marshalErr := mcp.MarshalErrorResponse(id, rpcErr)
-			if marshalErr == nil {
-				_ = s.sendRawMessage(errorBytes) // Ignore send error here, as we are exiting anyway
-			} else {
-				s.logger.Printf("Failed to marshal error response for invalid initial message: %v", marshalErr)
-			}
-		}
-		return err
-	}
-
-	// Handle the initialize request (which returns marshalled response/error bytes)
-	responseBytes, handleErr := s.handleInitializeRequest(id, payload)
-	if handleErr != nil {
-		// Error should have been logged in handler.
-		// If responseBytes is not nil here, it's a marshalled error response from the handler.
-		if responseBytes != nil {
-			_ = s.sendRawMessage(responseBytes) // Attempt to send the error response
-		}
-		return fmt.Errorf("failed to handle initialize request: %w", handleErr)
-	}
-
-	// Send the successful initialize response
-	if err := s.sendRawMessage(responseBytes); err != nil {
-		return fmt.Errorf("failed to send initialize response: %w", err)
-	}
-
-	s.logger.Println("Initialize response sent. Waiting for 'initialized' notification...")
-
-	// Wait for the "initialized" notification (use constant)
-	payload, err = readMessage(s.reader, s.logger)
-	if err != nil {
-		if err == io.EOF {
-			return fmt.Errorf("client disconnected after sending initialize response, before sending '%s' notification", notificationInitialized)
-		}
-		return fmt.Errorf("error reading message after initialize response: %w", err)
-	}
-
-	method, _, isNotification, _, _ = peekMessageType(payload)
-	// Check if it's the correct notification
-	// Note: The spec uses "notifications/initialized", but examples sometimes use "initialized".
-	// Be flexible or stick strictly to one. Let's use the constant `notificationInitialized`.
-	if !isNotification || (method != notificationInitialized && method != "notifications/initialized") {
-		err := fmt.Errorf("expected '%s' or 'notifications/initialized' notification, but got method '%s' (notification: %t)", notificationInitialized, method, isNotification)
-		s.logger.Println(err.Error())
-		// Cannot send error for notification, just log and potentially exit
-		return err
-	}
-
-	s.logger.Printf("Received '%s' notification. Initialization sequence complete.", method)
-	// No response needed for notifications
-
-	return nil
-}
-
 // processMessage determines the type of message and routes it appropriately.
+// It also handles the initial state transitions (waiting for initialize, waiting for initialized).
 func (s *Server) processMessage(payload []byte) {
 	method, id, isNotification, isResponse, isError := peekMessageType(payload)
 
+	// --- State Machine: Before Initialization ---
+	if !s.initialized {
+		// State 1: Waiting for "initialize" request
+		if method == mcp.MethodInitialize && !isNotification && id != nil {
+			s.logger.Printf("Received 'initialize' request (ID: %v) while not initialized.", id)
+			responseBytes, handleErr := s.handleInitializeRequest(id, payload)
+			// Send response (success or error marshalled by handler)
+			if responseBytes != nil {
+				if sendErr := s.sendRawMessage(responseBytes); sendErr != nil {
+					s.logger.Printf("FATAL: Failed to send initialize response/error for request ID %v: %v", id, sendErr)
+					// Consider signaling shutdown?
+				} else {
+					s.logger.Println("Initialize response sent. Waiting for 'initialized' notification...")
+				}
+			}
+			if handleErr != nil {
+				s.logger.Printf("Error handling initialize request (ID: %v): %v", id, handleErr)
+				// Error already logged in handler, response (if possible) was sent.
+			}
+			// Do not set s.initialized = true yet. Wait for notification.
+			return // Handled initialize request, wait for next message.
+		}
+
+		// State 2: Waiting for "initialized" notification (after sending initialize response)
+		// Note: The spec uses "notifications/initialized", but examples sometimes use "initialized". Accept both.
+		if isNotification && (method == notificationInitialized || method == "notifications/initialized") {
+			s.logger.Printf("Received '%s' notification. Initialization sequence complete.", method)
+			s.initialized = true // <-- SET INITIALIZED FLAG HERE
+			return              // Handled notification, ready for normal operation.
+		}
+
+		// Unexpected message before initialization is complete
+		s.logger.Printf("Error: Received unexpected message before initialization complete. Method: '%s', ID: %v, IsNotification: %t, IsResponse: %t", method, id, isNotification, isResponse)
+		if id != nil && !isNotification && !isResponse { // If it was a request with an ID
+			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, "Server not initialized", nil)
+			errorBytes, _ := mcp.MarshalErrorResponse(id, rpcErr) // Ignore marshal error, send if possible
+			if errorBytes != nil {
+				_ = s.sendRawMessage(errorBytes) // Ignore send error
+			}
+		}
+		return // Ignore the unexpected message otherwise
+	}
+
+	// --- State Machine: Initialized ---
+	// Handle messages received *after* initialization is complete.
+
 	if isNotification {
+		// Handle 'initialized' notification received *after* already initialized (benign)
+		if method == notificationInitialized || method == "notifications/initialized" {
+			s.logger.Printf("Warning: Received duplicate '%s' notification after already initialized. Ignoring.", method)
+			return
+		}
 		s.logger.Printf("Received Notification (Method: %s). No response needed.", method)
-		// Handle specific notifications like $/cancel if needed
-		// Example:
-		// if method == "$/cancel" {
-		//     s.handleCancelNotification(payload)
-		// }
+		// Handle other specific notifications like $/cancel if needed
 		return
 	}
 
@@ -227,10 +188,10 @@ func (s *Server) processMessage(payload []byte) {
 	// Route to the appropriate handler
 	switch method {
 	case mcp.MethodInitialize:
-		// Should not happen after initialization, but handle defensively
+		// Handle duplicate 'initialize' request after initialization
 		s.logger.Printf("Error: Received duplicate 'initialize' request (ID: %v) after initialization.", id)
-		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, "Duplicate initialize request", nil)
-		responseBytes, handleErr = mcp.MarshalErrorResponse(id, rpcErr)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, "Server already initialized", nil)
+		responseBytes, handleErr = s.marshalErrorResponse(id, rpcErr) // Use helper
 
 	case mcp.MethodListTools:
 		responseBytes, handleErr = s.handleListTools(id, payload)
