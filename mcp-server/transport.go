@@ -56,6 +56,7 @@ func writeMessage(writer io.Writer, message interface{}, logger *log.Logger) err
 
 // readMessage reads headers and the corresponding payload from the reader.
 func readMessage(reader *bufio.Reader, logger *log.Logger) ([]byte, error) {
+
 	tpReader := textproto.NewReader(reader)
 
 	// Read headers
@@ -72,6 +73,7 @@ func readMessage(reader *bufio.Reader, logger *log.Logger) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("failed to read MIME header: %w", err)
 	}
+	logger.Printf("Received headers: %s", mimeHeader)
 
 	// Get Content-Length
 	contentLengthStr := mimeHeader.Get(headerContentLength)
@@ -84,6 +86,7 @@ func readMessage(reader *bufio.Reader, logger *log.Logger) ([]byte, error) {
 		logger.Printf("Received headers without Content-Length:\n%s", headers.String())
 		return nil, fmt.Errorf("missing or empty %s header", headerContentLength)
 	}
+	logger.Printf("Content-Length header: %s", contentLengthStr)
 
 	contentLength, err := strconv.Atoi(contentLengthStr)
 	if err != nil {
@@ -115,12 +118,12 @@ func readMessage(reader *bufio.Reader, logger *log.Logger) ([]byte, error) {
 // This is useful for logging before full unmarshalling and handling.
 func peekMessageType(payload []byte) (method string, id mcp.RequestID, isNotification bool, isResponse bool, isError bool) {
 	var base struct {
-		Method string          `json:"method"`
-		ID     mcp.RequestID   `json:"id"`       // Can be string, number, or null/absent
-		Error  json.RawMessage `json:"error"`    // Check if non-null
-		Result json.RawMessage `json:"result"`   // Check if non-null
-		Params json.RawMessage `json:"params"`   // Needed to differentiate req/notification
-		JSONRPC string         `json:"jsonrpc"` // Check for presence
+		Method  string          `json:"method"`
+		ID      mcp.RequestID   `json:"id"`      // Can be string, number, or null/absent
+		Error   json.RawMessage `json:"error"`   // Check if non-null
+		Result  json.RawMessage `json:"result"`  // Check if non-null
+		Params  json.RawMessage `json:"params"`  // Needed to differentiate req/notification
+		JSONRPC string          `json:"jsonrpc"` // Check for presence
 	}
 
 	// Use a decoder to ignore unknown fields gracefully
@@ -148,7 +151,7 @@ func peekMessageType(payload []byte) (method string, id mcp.RequestID, isNotific
 	// Params check isn't strictly necessary for type determination but good practice
 	// hasParams := len(base.Params) > 0 && string(base.Params) != "null"
 
-	isNotification = !hasID && hasMethod // Notification: MUST NOT have id, MUST have method
+	isNotification = !hasID && hasMethod          // Notification: MUST NOT have id, MUST have method
 	isResponse = hasID && (hasResult || hasError) // Response: MUST have id, MUST have result OR error (but not both)
 	isError = hasID && hasError                   // Error Response: MUST have id, MUST have error
 

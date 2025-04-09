@@ -95,3 +95,5 @@ create an mcp 'resource' with
 - description  'returns a string of random characters of length 'n'"
 mime type: 'text/plain'. 
 the random_data resource will use the the RandomData function from resources.go to generate a string of random characters of length 'n' as specifed in the uri. add this to the resources/list and resources/read responses.
+
+echo "{\"jsonrpc\":\"2.0\",\"method\":\"initialize\",\"params\":{\"capabilities\":{},\"clientInfo\":{\"name\":\"GoMCPExampleClient\",\"version\":\"0.1.0\"},\"protocolVersion\":\"2024-11-05\"},\"id\":1}" | ./mcp-server
