@@ -10,12 +10,65 @@ import (
 	"sync"
 
 	// Use the absolute module path
+	"bytes" // Added for peekMessageType
 	"sqirvy/mcp/pkg/mcp"
 )
 
 const (
 	notificationInitialized = "initialized" // Standard notification method from client after initialize response
 )
+
+// peekMessageType attempts to unmarshal just enough to get the method/id/error.
+// This is useful for logging before full unmarshalling and handling.
+// (Moved from transport.go)
+func peekMessageType(logger *log.Logger, payload []byte) (method string, id mcp.RequestID, isNotification bool, isResponse bool, isError bool) {
+	var base struct {
+		Method  string          `json:"method"`
+		ID      mcp.RequestID   `json:"id"`      // Can be string, number, or null/absent
+		Error   json.RawMessage `json:"error"`   // Check if non-null
+		Result  json.RawMessage `json:"result"`  // Check if non-null
+		Params  json.RawMessage `json:"params"`  // Needed to differentiate req/notification
+		JSONRPC string          `json:"jsonrpc"` // Check for presence
+	}
+
+	logger.Print("Peek message type from payload: ", string(payload))
+	// Use a decoder to ignore unknown fields gracefully
+	decoder := json.NewDecoder(bytes.NewReader(payload))
+	// decoder.DisallowUnknownFields() // Use this for stricter parsing if needed
+
+	if err := decoder.Decode(&base); err != nil {
+		// Cannot determine type if basic unmarshal fails
+		logger.Printf("Failed to decode base JSON-RPC structure: %v", err)
+		// Return values indicating it's not identifiable as any standard type
+		return "", nil, false, false, false
+	}
+
+	// Basic JSON-RPC validation
+	if base.JSONRPC != "2.0" {
+		logger.Printf("Invalid JSON-RPC version: %s", base.JSONRPC)
+		return "", nil, false, false, false // Not a valid JSON-RPC 2.0 message
+	}
+
+	id = base.ID // Store the ID (can be nil)
+	method = base.Method
+
+	// Determine message type based on fields present according to JSON-RPC 2.0 spec
+	hasID := base.ID != nil
+	hasMethod := base.Method != ""
+	hasResult := len(base.Result) > 0 && string(base.Result) != "null"
+	hasError := len(base.Error) > 0 && string(base.Error) != "null"
+	// Params check isn't strictly necessary for type determination but good practice
+	// hasParams := len(base.Params) > 0 && string(base.Params) != "null"
+
+	isNotification = !hasID && hasMethod          // Notification: MUST NOT have id, MUST have method
+	isResponse = hasID && (hasResult || hasError) // Response: MUST have id, MUST have result OR error (but not both)
+	isError = hasID && hasError                   // Error Response: MUST have id, MUST have error
+
+	// If it's not a notification or response, it should be a request
+	// isRequest := hasID && hasMethod && !hasResult && !hasError
+	logger.Printf("Message type determined: method=%s, id=%v, isNotification=%t, isResponse=%t, isError=%t", method, id, isNotification, isResponse, isError)
+	return method, id, isNotification, isResponse, isError
+}
 
 // Server handles the MCP communication logic.
 type Server struct {
@@ -74,22 +127,54 @@ func (s *Server) Run() error {
 }
 
 // readLoop continuously reads messages from the transport and sends them to the incomingMessages channel.
-// It exits when readMessage returns an error (like io.EOF).
+// readLoop continuously reads messages (lines) from the server's reader (s.reader),
+// sending valid JSON payloads to the incomingMessages channel.
+// It exits when the reader encounters an error (like io.EOF).
 func (s *Server) readLoop() {
 	defer func() {
 		s.logger.Println("Exiting read loop.")
 		close(s.shutdown) // Signal the main loop to shut down when reading stops
 	}()
-	s.logger.Println("Starting read loop.")
+	s.logger.Println("Starting read loop, reading from s.reader (stdin)...")
+
+	// Use the server's buffered reader directly
 	for {
-		s.logger.Println("Waiting for message from stdin...")
-		payload, err := readMessage(s.logger)
+		s.logger.Println("Waiting for line from s.reader...")
+		// Read until newline. Assumes one JSON message per line.
+		payload, err := s.reader.ReadBytes('\n')
 		if err != nil {
-			s.logger.Printf("Error reading message: %v", err)
-			return // Exit loop on any error
+			if err == io.EOF {
+				s.logger.Println("EOF received from reader. Shutting down read loop.")
+			} else {
+				s.logger.Printf("Error reading from reader: %v", err)
+			}
+			return // Exit loop on EOF or any other error
 		}
-		s.incomingMessages <- payload // Send the payload to the processing loop
-		s.logger.Println("Message sent to processing loop.")
+
+		// Trim trailing newline characters for correct JSON parsing
+		payload = bytes.TrimSpace(payload)
+		if len(payload) == 0 {
+			s.logger.Println("Received empty line, skipping.")
+			continue // Skip empty lines
+		}
+
+		// Basic validation: Check if it looks like JSON
+		if !(bytes.HasPrefix(payload, []byte("{")) && bytes.HasSuffix(payload, []byte("}"))) {
+			s.logger.Printf("Received line does not look like JSON object, skipping: %s", string(payload))
+			continue
+		}
+
+		s.logger.Printf("Read line (%d bytes): %s", len(payload), string(payload))
+		// Send the raw payload (single line) to the processing loop
+		// Use a select with a default to prevent blocking if the channel is full,
+		// though the channel is buffered. Consider error handling if it fills up.
+		select {
+		case s.incomingMessages <- payload:
+			s.logger.Println("Payload sent to processing loop.")
+		default:
+			s.logger.Println("Warning: incomingMessages channel full. Discarding message.")
+			// Or potentially block, log more severely, or increase buffer size.
+		}
 	}
 }
 
