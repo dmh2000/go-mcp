@@ -31,15 +31,12 @@ func peekMessageType(logger *log.Logger, payload []byte) (method string, id mcp.
 		JSONRPC string          `json:"jsonrpc"` // Check for presence
 	}
 
-	logger.Print("Peek message type from payload: ", string(payload))
 	// Use a decoder to ignore unknown fields gracefully
 	decoder := json.NewDecoder(bytes.NewReader(payload))
-	// decoder.DisallowUnknownFields() // Use this for stricter parsing if needed
 
 	if err := decoder.Decode(&base); err != nil {
 		// Cannot determine type if basic unmarshal fails
 		logger.Printf("Failed to decode base JSON-RPC structure: %v", err)
-		// Return values indicating it's not identifiable as any standard type
 		return "", nil, false, false, false
 	}
 
@@ -57,8 +54,6 @@ func peekMessageType(logger *log.Logger, payload []byte) (method string, id mcp.
 	hasMethod := base.Method != ""
 	hasResult := len(base.Result) > 0 && string(base.Result) != "null"
 	hasError := len(base.Error) > 0 && string(base.Error) != "null"
-	// Params check isn't strictly necessary for type determination but good practice
-	// hasParams := len(base.Params) > 0 && string(base.Params) != "null"
 
 	isNotification = !hasID && hasMethod          // Notification: MUST NOT have id, MUST have method
 	isResponse = hasID && (hasResult || hasError) // Response: MUST have id, MUST have result OR error (but not both)
@@ -66,7 +61,7 @@ func peekMessageType(logger *log.Logger, payload []byte) (method string, id mcp.
 
 	// If it's not a notification or response, it should be a request
 	// isRequest := hasID && hasMethod && !hasResult && !hasError
-	logger.Printf("Message type determined: method=%s, id=%v, isNotification=%t, isResponse=%t, isError=%t", method, id, isNotification, isResponse, isError)
+	logger.Printf("Message type : method=%s", method)
 	return method, id, isNotification, isResponse, isError
 }
 
@@ -110,15 +105,13 @@ func (s *Server) Run() error {
 	go s.readLoop()
 
 	// 3. Main processing loop
-	s.logger.Println("Entering main processing loop.")
 	for {
 		s.logger.Print("Waiting for incoming messages...")
 		select {
 		case payload := <-s.incomingMessages:
 			// Process the received message
-			s.logger.Printf("Processing incoming message: %s", string(payload))
+			s.logger.Printf("R: %s", string(payload))
 			s.processMessage(payload)
-			s.logger.Println("Message processed successfully.")
 		case <-s.shutdown:
 			s.logger.Println("Shutdown signal received. Exiting processing loop.")
 			return nil // Normal shutdown
@@ -135,7 +128,6 @@ func (s *Server) readLoop() {
 		s.logger.Println("Exiting read loop.")
 		close(s.shutdown) // Signal the main loop to shut down when reading stops
 	}()
-	s.logger.Println("Starting read loop, reading from s.reader (stdin)...")
 
 	// Use the server's buffered reader directly
 	for {
@@ -164,7 +156,6 @@ func (s *Server) readLoop() {
 			continue
 		}
 
-		s.logger.Printf("Read line (%d bytes): %s", len(payload), string(payload))
 		// Send the raw payload (single line) to the processing loop
 		// Use a select with a default to prevent blocking if the channel is full,
 		// though the channel is buffered. Consider error handling if it fills up.
@@ -318,20 +309,6 @@ func (s *Server) sendRawMessage(payload []byte) error {
 			s.logger.Printf("Error in async sendRawMessage: failed to write newline: %v", err)
 			// Continue to attempt flush even if newline fails
 		}
-
-
-		// Flush if the writer supports it
-		if flusher, ok := s.writer.(interface{ Flush() error }); ok {
-			if err := flusher.Flush(); err != nil {
-				s.logger.Printf("Warning in async sendRawMessage: failed to flush writer: %v", err)
-			}
-		} else if f, ok := s.writer.(interface{ Sync() error }); ok {
-			// Attempt Sync if Flush is not available (e.g., os.Stdout might need Sync)
-			if err := f.Sync(); err != nil {
-				s.logger.Printf("Warning in async sendRawMessage: failed to sync writer: %v", err)
-			}
-		}
-		s.logger.Printf("Goroutine finished writing payload (%d bytes)", len(p))
 	}(payload) // Pass payload as argument to avoid closure issues
 
 	return nil // Return immediately

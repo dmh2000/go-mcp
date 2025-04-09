@@ -64,7 +64,7 @@ func (c *Client) Initialize(protocolVersion string, clientInfo mcp.Implementatio
 	}
 
 	// Read the response
-	respBytes, err := readMessage(c.reader, c.logger) // Using transport function directly for now
+	respBytes, err := readMessage(c.logger) // Using transport function directly for now
 	if err != nil {
 		return nil, fmt.Errorf("failed to read initialize response: %w", err)
 	}
@@ -162,7 +162,7 @@ func (c *Client) ListResources(params *mcp.ListResourcesParams) (*mcp.ListResour
 	}
 
 	// Read the response
-	respBytes, err := readMessage(c.reader, c.logger) // Using transport function
+	respBytes, err := readMessage(c.logger) // Using transport function
 	if err != nil {
 		return nil, fmt.Errorf("failed to read resources/list response: %w", err)
 	}
@@ -202,7 +202,7 @@ func (c *Client) ReadResource(params mcp.ReadResourceParams) (*mcp.ReadResourceR
 	}
 
 	// Read the response
-	respBytes, err := readMessage(c.reader, c.logger) // Using transport function
+	respBytes, err := readMessage(c.logger) // Using transport function
 	if err != nil {
 		return nil, fmt.Errorf("failed to read resources/read response: %w", err)
 	}
@@ -234,11 +234,6 @@ func (c *Client) sendRaw(payload []byte) error {
 	// Log the raw payload being sent *before* writing
 	c.logger.Printf("Sending raw message payload (%d bytes): %s", len(payload), string(payload))
 
-	header := fmt.Sprintf("%s: %d\r\n\r\n", headerContentLength, len(payload))
-
-	if _, err := c.writer.Write([]byte(header)); err != nil {
-		return fmt.Errorf("failed to write message header: %w", err)
-	}
 	if _, err := c.writer.Write(payload); err != nil {
 		return fmt.Errorf("failed to write message payload: %w", err)
 	}

@@ -130,7 +130,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 // These handlers now return the marshalled response/error bytes and any error encountered during marshalling.
 // They no longer call sendResponse/sendErrorResponse directly.
 
-func (s *Server) handleListTools(id mcp.RequestID, payload []byte) ([]byte, error) {
+func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handling tools/list request (ID: %v)", id)
 	// TODO: Implement actual tool listing logic if/when tools are added.
 	// For now, return empty list.
@@ -142,7 +142,7 @@ func (s *Server) handleListTools(id mcp.RequestID, payload []byte) ([]byte, erro
 	return s.marshalResponse(id, result)
 }
 
-func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error) {
+func (s *Server) handleCallTool(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handling tools/call request (ID: %v) - Not Implemented", id)
 	// TODO: Implement tool calling logic later.
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'tools/call' not implemented", nil)
@@ -150,7 +150,7 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 	return s.marshalErrorResponse(id, rpcErr)
 }
 
-func (s *Server) handleListPrompts(id mcp.RequestID, payload []byte) ([]byte, error) {
+func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handling prompts/list request (ID: %v)", id)
 	// TODO: Implement actual prompt listing logic.
 	result := mcp.ListPromptsResult{
@@ -160,14 +160,14 @@ func (s *Server) handleListPrompts(id mcp.RequestID, payload []byte) ([]byte, er
 	return s.marshalResponse(id, result)
 }
 
-func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, error) {
+func (s *Server) handleGetPrompt(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handling prompts/get request (ID: %v) - Not Implemented", id)
 	// TODO: Implement prompt retrieval logic.
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'prompts/get' not implemented", nil)
 	return s.marshalErrorResponse(id, rpcErr)
 }
 
-func (s *Server) handleListResources(id mcp.RequestID, payload []byte) ([]byte, error) {
+func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handling resources/list request (ID: %v)", id)
 
 	// Define the static random_data resource

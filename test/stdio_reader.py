@@ -3,8 +3,11 @@
 import sys
 import logging
 import os
+import anyio
+from anyio import streams
 
 LOG_FILENAME = "stdio_reader_py.log"
+
 
 def setup_logging():
     """Sets up logging to a file."""
@@ -29,7 +32,7 @@ def setup_logging():
             return
 
     try:
-        file_handler = logging.FileHandler(LOG_FILENAME, mode='a')
+        file_handler = logging.FileHandler(LOG_FILENAME, mode="a")
         file_handler.setFormatter(log_formatter)
         root_logger.addHandler(file_handler)
     except IOError as e:
@@ -41,25 +44,16 @@ def setup_logging():
         logging.error("Could not open log file. Logging to stderr.")
 
 
-def main():
-    """Reads stdin and logs the content."""
+async def read_stdin():
+    async for line in anyio.AsyncFile(sys.stdin):
+        # Process each line here
+        logging.info(f"Received line: {line.rstrip()}")
+
+
+async def main():
     setup_logging()
-    logging.info("Starting up. Reading from stdin...")
+    await read_stdin()
 
-    try:
-        # Read all data from standard input
-        # Use sys.stdin.buffer.read() to get bytes, then decode assuming UTF-8
-        # Adjust encoding if necessary based on expected client output
-        input_bytes = sys.stdin.buffer.read()
-        input_data = input_bytes.decode('utf-8', errors='replace') # Decode bytes to string
-        logging.info(f"Read {len(input_bytes)} bytes from stdin. Logging received data.")
-        logging.info(f"Received Data:\n---\n{input_data}\n---")
-
-    except Exception as e:
-        logging.exception("An error occurred while reading or processing stdin.")
-        sys.exit(1)
-
-    logging.info("Finished processing stdin. Exiting.")
 
 if __name__ == "__main__":
-    main()
+    anyio.run(main)
