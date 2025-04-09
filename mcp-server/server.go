@@ -2,12 +2,11 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
-	"os" // Added for os.File type assertion
+	"log" // Added for os.File type assertion
+	"os"
 	"sync"
 
 	// Use the absolute module path
@@ -16,20 +15,19 @@ import (
 
 const (
 	notificationInitialized = "initialized" // Standard notification method from client after initialize response
-	// headerContentLength is defined in transport.go
 )
 
 // Server handles the MCP communication logic.
 type Server struct {
-	reader        *bufio.Reader
-	writer        io.Writer // Using io.Writer for flexibility, though likely os.Stdout
-	logger        *log.Logger
-	mu            sync.Mutex // Protects writer access
-	initialized   bool
-	serverVersion string
-	serverInfo    mcp.Implementation
-	incomingMessages chan []byte // Channel for incoming message payloads
-	shutdown      chan struct{} // Channel to signal shutdown
+	reader           *bufio.Reader
+	writer           io.Writer // Using io.Writer for flexibility, though likely os.Stdout
+	logger           *log.Logger
+	mu               sync.Mutex // Protects writer access
+	initialized      bool
+	serverVersion    string
+	serverInfo       mcp.Implementation
+	incomingMessages chan []byte   // Channel for incoming message payloads
+	shutdown         chan struct{} // Channel to signal shutdown
 	// Add state for resources, tools, prompts later
 }
 
@@ -40,7 +38,7 @@ func NewServer(reader io.Reader, writer io.Writer, logger *log.Logger) *Server {
 		writer:           writer,
 		logger:           logger,
 		initialized:      false,
-		serverVersion:    "2024-11-05", // Align with your spec/schema version
+		serverVersion:    "2024-11-05",          // Align with your spec/schema version
 		incomingMessages: make(chan []byte, 10), // Buffered channel
 		shutdown:         make(chan struct{}),
 		serverInfo: mcp.Implementation{
@@ -61,12 +59,13 @@ func (s *Server) Run() error {
 	// 3. Main processing loop
 	s.logger.Println("Entering main processing loop.")
 	for {
+		s.logger.Print("Waiting for incoming messages...")
 		select {
 		case payload := <-s.incomingMessages:
 			// Process the received message
-			// Consider running in a separate goroutine for full concurrency: go s.processMessage(payload)
-			// For simplicity now, process sequentially in the main loop.
+			s.logger.Printf("Processing incoming message: %s", string(payload))
 			s.processMessage(payload)
+			s.logger.Println("Message processed successfully.")
 		case <-s.shutdown:
 			s.logger.Println("Shutdown signal received. Exiting processing loop.")
 			return nil // Normal shutdown
@@ -83,35 +82,21 @@ func (s *Server) readLoop() {
 	}()
 	s.logger.Println("Starting read loop.")
 	for {
-		payload, err := readMessage(s.reader, s.logger)
+		s.logger.Println("Waiting for message from stdin...")
+		payload, err := readMessage(s.logger)
 		if err != nil {
-			if err == io.EOF {
-				s.logger.Println("Client closed connection (EOF). Read loop finished.")
-				// Normal termination, signal shutdown
-			} else {
-				// Log other read errors
-				s.logger.Printf("Error reading message in readLoop: %v.", err)
-				// Depending on the error, might want to signal shutdown or try to recover
-			}
+			s.logger.Printf("Error reading message: %v", err)
 			return // Exit loop on any error
 		}
-
-		// Send payload to the processing loop
-		select {
-		case s.incomingMessages <- payload:
-			// Message sent successfully
-		case <-s.shutdown:
-			// Shutdown signal received while trying to send, discard message and exit
-			s.logger.Println("Shutdown signal received during message send in readLoop. Discarding message.")
-			return
-		}
-	} // <--- Add missing closing brace for readLoop here
+		s.incomingMessages <- payload // Send the payload to the processing loop
+		s.logger.Println("Message sent to processing loop.")
+	}
 }
 
 // processMessage determines the type of message and routes it appropriately.
 // It also handles the initial state transitions (waiting for initialize, waiting for initialized).
 func (s *Server) processMessage(payload []byte) {
-	method, id, isNotification, isResponse, isError := peekMessageType(payload)
+	method, id, isNotification, isResponse, isError := peekMessageType(s.logger, payload)
 
 	// --- State Machine: Before Initialization ---
 	if !s.initialized {
@@ -120,44 +105,26 @@ func (s *Server) processMessage(payload []byte) {
 			s.logger.Printf("Received 'initialize' request (ID: %v) while not initialized.", id)
 			responseBytes, handleErr := s.handleInitializeRequest(id, payload)
 			// Send response (success or error marshalled by handler)
+			if handleErr != nil {
+				s.logger.Printf("Error during handling of 'initialize' request (ID: %v): %v", id, handleErr)
+				os.Exit(1)
+			}
 			if responseBytes != nil {
 				if sendErr := s.sendRawMessage(responseBytes); sendErr != nil {
 					s.logger.Printf("FATAL: Failed to send initialize response/error for request ID %v: %v", id, sendErr)
 					// Consider signaling shutdown?
 				} else {
-					s.logger.Println("Initialize response sent. Waiting for 'initialized' notification...")
+					s.logger.Println("Initialize response sent")
+					s.initialized = true // Set initialized state after sending response
 				}
 			}
-			if handleErr != nil {
-				s.logger.Printf("Error handling initialize request (ID: %v): %v", id, handleErr)
-				// Error already logged in handler, response (if possible) was sent.
-			}
-			// Do not set s.initialized = true yet. Wait for notification.
-			return // Handled initialize request, wait for next message.
+			return
 		}
-
-		// State 2: Waiting for "initialized" notification (after sending initialize response)
-		// Note: The spec uses "notifications/initialized", but examples sometimes use "initialized". Accept both.
-		if isNotification && (method == notificationInitialized || method == "notifications/initialized") {
-			s.logger.Printf("Received '%s' notification. Initialization sequence complete.", method)
-			s.initialized = true // <-- SET INITIALIZED FLAG HERE
-			return              // Handled notification, ready for normal operation.
-		}
-
-		// Unexpected message before initialization is complete
-		s.logger.Printf("Error: Received unexpected message before initialization complete. Method: '%s', ID: %v, IsNotification: %t, IsResponse: %t", method, id, isNotification, isResponse)
-		if id != nil && !isNotification && !isResponse { // If it was a request with an ID
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, "Server not initialized", nil)
-			errorBytes, _ := mcp.MarshalErrorResponse(id, rpcErr) // Ignore marshal error, send if possible
-			if errorBytes != nil {
-				_ = s.sendRawMessage(errorBytes) // Ignore send error
-			}
-		}
-		return // Ignore the unexpected message otherwise
 	}
 
 	// --- State Machine: Initialized ---
 	// Handle messages received *after* initialization is complete.
+	s.logger.Printf("Server is initialized. Processing message (Method: %s, ID: %v)", method, id)
 
 	if isNotification {
 		// Handle 'initialized' notification received *after* already initialized (benign)
@@ -248,32 +215,18 @@ func (s *Server) sendRawMessage(payload []byte) error {
 	// Log the raw payload being sent *before* writing
 	s.logger.Printf("Sending raw message payload (%d bytes): %s", len(payload), string(payload))
 
-	header := fmt.Sprintf("%s: %d\r\n\r\n", headerContentLength, len(payload))
-
-	// Use a temporary buffer to write header and payload together
-	// This can help prevent partial writes if the underlying writer buffers internally.
-	var buf bytes.Buffer
-	buf.WriteString(header)
-	buf.Write(payload)
-
-	n, err := s.writer.Write(buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("failed to write message (wrote %d/%d bytes): %w", n, buf.Len(), err)
-	}
-	if n != buf.Len() {
-		return fmt.Errorf("incomplete message write (wrote %d/%d bytes)", n, buf.Len())
+	if _, err := s.writer.Write(payload); err != nil {
+		return fmt.Errorf("failed to write message payload: %w", err)
 	}
 
-	// Flush if the writer supports it (e.g., bufio.Writer, os.Stdout might need it)
-	if f, ok := s.writer.(*os.File); ok {
-		// Syncing stdout might be overkill/ineffective depending on OS/terminal.
-		// It's generally safe but might not guarantee immediate visibility everywhere.
-		_ = f.Sync()
-	} else if flusher, ok := s.writer.(interface{ Flush() error }); ok {
+	// Flush if the writer supports it (e.g., pipe might need it)
+	if flusher, ok := s.writer.(interface{ Flush() error }); ok {
 		if err := flusher.Flush(); err != nil {
-			// Log flush errors but don't treat them as fatal write errors usually
 			s.logger.Printf("Warning: failed to flush writer after sending message: %v", err)
 		}
+	} else if f, ok := s.writer.(interface{ Sync() error }); ok {
+		// Pipes might implement Sync
+		_ = f.Sync()
 	}
 
 	return nil
