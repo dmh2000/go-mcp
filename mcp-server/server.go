@@ -292,29 +292,49 @@ func (s *Server) processMessage(payload []byte) {
 	}
 }
 
-// sendRawMessage sends pre-marshalled bytes with headers.
+// sendRawMessage sends pre-marshalled bytes asynchronously using a goroutine.
+// It logs the payload and launches a goroutine to perform the write and flush.
+// Errors during the write operation are logged within the goroutine.
+// This function returns immediately (nil error).
 func (s *Server) sendRawMessage(payload []byte) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// Log the raw payload being scheduled for sending
+	s.logger.Printf("Scheduling async send for raw message payload (%d bytes): %s", len(payload), string(payload))
 
-	// Log the raw payload being sent *before* writing
-	s.logger.Printf("Sending raw message payload (%d bytes): %s", len(payload), string(payload))
+	// Launch a goroutine to handle the actual sending
+	go func(p []byte) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
-	if _, err := s.writer.Write(payload); err != nil {
-		return fmt.Errorf("failed to write message payload: %w", err)
-	}
+		// Log again just before the actual write within the goroutine
+		s.logger.Printf("Goroutine writing payload (%d bytes): %s", len(p), string(p))
 
-	// Flush if the writer supports it (e.g., pipe might need it)
-	if flusher, ok := s.writer.(interface{ Flush() error }); ok {
-		if err := flusher.Flush(); err != nil {
-			s.logger.Printf("Warning: failed to flush writer after sending message: %v", err)
+		if _, err := s.writer.Write(p); err != nil {
+			s.logger.Printf("Error in async sendRawMessage: failed to write message payload: %v", err)
+			return // Exit goroutine on write error
 		}
-	} else if f, ok := s.writer.(interface{ Sync() error }); ok {
-		// Pipes might implement Sync
-		_ = f.Sync()
-	}
 
-	return nil
+		// Add newline after the JSON payload
+		if _, err := s.writer.Write([]byte("\n")); err != nil {
+			s.logger.Printf("Error in async sendRawMessage: failed to write newline: %v", err)
+			// Continue to attempt flush even if newline fails
+		}
+
+
+		// Flush if the writer supports it
+		if flusher, ok := s.writer.(interface{ Flush() error }); ok {
+			if err := flusher.Flush(); err != nil {
+				s.logger.Printf("Warning in async sendRawMessage: failed to flush writer: %v", err)
+			}
+		} else if f, ok := s.writer.(interface{ Sync() error }); ok {
+			// Attempt Sync if Flush is not available (e.g., os.Stdout might need Sync)
+			if err := f.Sync(); err != nil {
+				s.logger.Printf("Warning in async sendRawMessage: failed to sync writer: %v", err)
+			}
+		}
+		s.logger.Printf("Goroutine finished writing payload (%d bytes)", len(p))
+	}(payload) // Pass payload as argument to avoid closure issues
+
+	return nil // Return immediately
 }
 
 // sendResponse marshals a successful result into a full RPCResponse and sends it.
