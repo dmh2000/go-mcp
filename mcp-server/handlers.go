@@ -5,6 +5,7 @@ import (
 	// "errors" // No longer needed here
 	"fmt"
 	"net/url" // Added for URI parsing
+
 	// "strconv" // No longer needed here
 	// "strings" // No longer needed here
 	// Use the absolute module path
@@ -59,7 +60,6 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 			return errorBytes, err
 		}
 		paramsRaw = json.RawMessage(tempParamsBytes)
-		s.logger.Printf("Initialize params were not RawMessage initially, re-marshalled: %s", string(paramsRaw))
 	}
 
 	// Now unmarshal params specifically into InitializeParams
@@ -74,9 +74,6 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		}
 		return errorBytes, err
 	}
-
-	s.logger.Printf("Received Initialize Request (ID: %v): ClientInfo=%+v, ProtocolVersion=%s, Caps=%+v",
-		id, params.ClientInfo, params.ProtocolVersion, params.Capabilities)
 
 	// --- Capability Negotiation (Basic Example) ---
 	if params.ProtocolVersion == "" {
@@ -118,9 +115,6 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		return responseBytes, err // Return the error bytes and the original marshalling error
 	}
 
-	s.logger.Printf("Prepared Initialize Response (ID: %v): ServerInfo=%+v, ProtocolVersion=%s, Caps=%+v",
-		id, result.ServerInfo, result.ProtocolVersion, result.Capabilities)
-
 	return responseBytes, nil // Return success response bytes and nil error
 }
 
@@ -129,7 +123,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 // They no longer call sendResponse/sendErrorResponse directly.
 
 func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handling tools/list request (ID: %v)", id)
+	s.logger.Printf("Handle  : tools/list request (ID: %v)", id)
 	// TODO: Implement actual tool listing logic if/when tools are added.
 	// For now, return empty list.
 	result := mcp.ListToolsResult{
@@ -141,7 +135,7 @@ func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
 }
 
 func (s *Server) handleCallTool(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handling tools/call request (ID: %v) - Not Implemented", id)
+	s.logger.Printf("Handle  : tools/call request (ID: %v) - Not Implemented", id)
 	// TODO: Implement tool calling logic later.
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'tools/call' not implemented", nil)
 	// Marshal the error response
@@ -149,7 +143,7 @@ func (s *Server) handleCallTool(id mcp.RequestID) ([]byte, error) {
 }
 
 func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handling prompts/list request (ID: %v)", id)
+	s.logger.Printf("Handle  : prompts/list request (ID: %v)", id)
 	// TODO: Implement actual prompt listing logic.
 	result := mcp.ListPromptsResult{
 		Prompts: []mcp.Prompt{},
@@ -159,14 +153,14 @@ func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
 }
 
 func (s *Server) handleGetPrompt(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handling prompts/get request (ID: %v) - Not Implemented", id)
+	s.logger.Printf("Handle  : prompts/get request (ID: %v) - Not Implemented", id)
 	// TODO: Implement prompt retrieval logic.
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'prompts/get' not implemented", nil)
 	return s.marshalErrorResponse(id, rpcErr)
 }
 
 func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handling resources/list request (ID: %v)", id)
+	s.logger.Printf("Handle  : resources/list request (ID: %v)", id)
 
 	// Define the static random_data resource
 	randomDataResource := mcp.Resource{
@@ -188,7 +182,7 @@ func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
 }
 
 func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, error) {
-	s.logger.Printf("Handling resources/read request (ID: %v)", id)
+	s.logger.Printf("Handle  : resources/read request (ID: %v)", id)
 
 	var req mcp.RPCRequest
 	var params mcp.ReadResourceParams

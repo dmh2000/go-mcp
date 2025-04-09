@@ -43,7 +43,6 @@ func main() {
 
 	// Create and run the server
 	server := NewServer(stdin, stdout, logger)
-	logger.Println("Server initialized, starting run loop.")
 	err = server.Run()
 
 	// --- Shutdown ---

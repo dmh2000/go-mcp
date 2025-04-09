@@ -61,7 +61,6 @@ func peekMessageType(logger *log.Logger, payload []byte) (method string, id mcp.
 
 	// If it's not a notification or response, it should be a request
 	// isRequest := hasID && hasMethod && !hasResult && !hasError
-	logger.Printf("Message type : method=%s", method)
 	return method, id, isNotification, isResponse, isError
 }
 
@@ -98,7 +97,6 @@ func NewServer(reader io.Reader, writer io.Writer, logger *log.Logger) *Server {
 
 // Run starts the server's main loop.
 func (s *Server) Run() error {
-	s.logger.Println("Server Run() started.")
 	s.initialized = false // Ensure server starts in non-initialized state
 
 	// 1. Start background reader loop immediately
@@ -106,11 +104,10 @@ func (s *Server) Run() error {
 
 	// 3. Main processing loop
 	for {
-		s.logger.Print("Waiting for incoming messages...")
+		// s.logger.Print("Waiting for incoming messages...")
 		select {
 		case payload := <-s.incomingMessages:
 			// Process the received message
-			s.logger.Printf("R: %s", string(payload))
 			s.processMessage(payload)
 		case <-s.shutdown:
 			s.logger.Println("Shutdown signal received. Exiting processing loop.")
@@ -125,13 +122,13 @@ func (s *Server) Run() error {
 // It exits when the reader encounters an error (like io.EOF).
 func (s *Server) readLoop() {
 	defer func() {
-		s.logger.Println("Exiting read loop.")
+		// s.logger.Println("Exiting read loop.")
 		close(s.shutdown) // Signal the main loop to shut down when reading stops
 	}()
 
 	// Use the server's buffered reader directly
 	for {
-		s.logger.Println("Waiting for line from s.reader...")
+		// s.logger.Println("Waiting for line from s.reader...")
 		// Read until newline. Assumes one JSON message per line.
 		payload, err := s.reader.ReadBytes('\n')
 		if err != nil {
@@ -161,7 +158,7 @@ func (s *Server) readLoop() {
 		// though the channel is buffered. Consider error handling if it fills up.
 		select {
 		case s.incomingMessages <- payload:
-			s.logger.Println("Payload sent to processing loop.")
+			// Successfully sent to channel
 		default:
 			s.logger.Println("Warning: incomingMessages channel full. Discarding message.")
 			// Or potentially block, log more severely, or increase buffer size.
@@ -173,12 +170,12 @@ func (s *Server) readLoop() {
 // It also handles the initial state transitions (waiting for initialize, waiting for initialized).
 func (s *Server) processMessage(payload []byte) {
 	method, id, isNotification, isResponse, isError := peekMessageType(s.logger, payload)
-
+	s.logger.Printf("Receive : %s", string(payload))
 	// --- State Machine: Before Initialization ---
 	if !s.initialized {
 		// State 1: Waiting for "initialize" request
 		if method == mcp.MethodInitialize && !isNotification && id != nil {
-			s.logger.Printf("Received 'initialize' request (ID: %v) while not initialized.", id)
+			// s.logger.Printf("Received 'initialize' request (ID: %v) while not initialized.", id)
 			responseBytes, handleErr := s.handleInitializeRequest(id, payload)
 			// Send response (success or error marshalled by handler)
 			if handleErr != nil {
@@ -190,7 +187,6 @@ func (s *Server) processMessage(payload []byte) {
 					s.logger.Printf("FATAL: Failed to send initialize response/error for request ID %v: %v", id, sendErr)
 					// Consider signaling shutdown?
 				} else {
-					s.logger.Println("Initialize response sent")
 					s.initialized = true // Set initialized state after sending response
 				}
 			}
@@ -200,12 +196,11 @@ func (s *Server) processMessage(payload []byte) {
 
 	// --- State Machine: Initialized ---
 	// Handle messages received *after* initialization is complete.
-	s.logger.Printf("Server is initialized. Processing message (Method: %s, ID: %v)", method, id)
+	// s.logger.Printf("Server is initialized. Processing message (Method: %s, ID: %v)", method, id)
 
 	if isNotification {
 		// Handle 'initialized' notification received *after* already initialized (benign)
 		if method == notificationInitialized || method == "notifications/initialized" {
-			s.logger.Printf("Warning: Received duplicate '%s' notification after already initialized. Ignoring.", method)
 			return
 		}
 		s.logger.Printf("Received Notification (Method: %s). No response needed.", method)
@@ -226,7 +221,7 @@ func (s *Server) processMessage(payload []byte) {
 		return
 	}
 
-	s.logger.Printf("Received Request (ID: %v, Method: %s)", id, method)
+	// s.logger.Printf("Received Request (ID: %v, Method: %s)", id, method)
 
 	var responseBytes []byte
 	var handleErr error // Error returned by the handler function itself
@@ -288,16 +283,11 @@ func (s *Server) processMessage(payload []byte) {
 // Errors during the write operation are logged within the goroutine.
 // This function returns immediately (nil error).
 func (s *Server) sendRawMessage(payload []byte) error {
-	// Log the raw payload being scheduled for sending
-	s.logger.Printf("Scheduling async send for raw message payload (%d bytes): %s", len(payload), string(payload))
-
+	s.logger.Printf("Send    : %s", string(payload))
 	// Launch a goroutine to handle the actual sending
 	go func(p []byte) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-
-		// Log again just before the actual write within the goroutine
-		s.logger.Printf("Goroutine writing payload (%d bytes): %s", len(p), string(p))
 
 		if _, err := s.writer.Write(p); err != nil {
 			s.logger.Printf("Error in async sendRawMessage: failed to write message payload: %v", err)
