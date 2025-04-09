@@ -2,13 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
+	// "errors" // No longer needed here
 	"fmt"
 	"net/url" // Added for URI parsing
-	"strconv" // Added for string conversion
-	"strings"
-
-	// Keep log import
+	// "strconv" // No longer needed here
+	// "strings" // No longer needed here
 	// Use the absolute module path
 	"sqirvy/mcp/pkg/mcp"
 )
@@ -237,63 +235,24 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		return s.marshalErrorResponse(id, rpcErr)
 	}
 
-	// Check if it's the random_data resource
-	if parsedURI.Scheme == "data" && parsedURI.Host == "random_data" {
-		// Get the length parameter
-		lengthStr := parsedURI.Query().Get("length")
-		if lengthStr == "" {
-			err = fmt.Errorf("missing 'length' query parameter in URI: %s", params.URI)
-			s.logger.Println(err.Error())
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
-			return s.marshalErrorResponse(id, rpcErr)
+	// --- Route based on URI scheme/path ---
+	switch parsedURI.Scheme {
+	case "data":
+		if parsedURI.Host == "random_data" {
+			// Delegate to the specific handler in random.go
+			return s.handleRandomDataResource(id, params, parsedURI)
 		}
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			err = fmt.Errorf("invalid 'length' query parameter '%s': %w", lengthStr, err)
-			s.logger.Println(err.Error())
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
-			return s.marshalErrorResponse(id, rpcErr)
-		}
-
-		// Generate random data using the function from resources.go
-		randomString, err := RandomData(length)
-		if err != nil {
-			// RandomData already logs details, just wrap the error for the RPC response
-			err = fmt.Errorf("failed to generate random data for URI %s: %w", params.URI, err)
-			s.logger.Println(err.Error())
-			// Check if the error was due to invalid length (positive, max)
-			if errors.Is(err, errors.New("length must be positive")) || strings.Contains(err.Error(), "exceeds maximum allowed length") {
-				rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
-				return s.marshalErrorResponse(id, rpcErr)
-			}
-			// Otherwise, treat as internal error
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
-			return s.marshalErrorResponse(id, rpcErr)
-		}
-
-		// Prepare the result content
-		content := mcp.TextResourceContents{
-			URI:      params.URI,
-			MimeType: "text/plain",
-			Text:     randomString,
-		}
-		contentBytes, err := json.Marshal(content)
-		if err != nil {
-			err = fmt.Errorf("failed to marshal TextResourceContents for %s: %w", params.URI, err)
-			s.logger.Println(err.Error())
-			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
-			return s.marshalErrorResponse(id, rpcErr)
-		}
-
-		result := mcp.ReadResourceResult{
-			Contents: []json.RawMessage{json.RawMessage(contentBytes)},
-		}
-		return s.marshalResponse(id, result)
-
+	// Add cases for other schemes like "file", "http", etc.
+	// case "file":
+	//     return s.handleFileResource(id, params, parsedURI)
+	default:
+		// Scheme not supported
+		s.logger.Printf("Resource URI scheme '%s' not supported", parsedURI.Scheme)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, fmt.Sprintf("Resource URI scheme '%s' not supported", parsedURI.Scheme), nil)
+		return s.marshalErrorResponse(id, rpcErr)
 	}
 
-	// --- Handle other resources here ---
+	// --- Fallback: Resource not found within the supported scheme ---
 	// If the URI doesn't match known resources:
 	s.logger.Printf("Resource URI '%s' not found", params.URI)
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, fmt.Sprintf("Resource URI '%s' not found or supported", params.URI), nil) // Using InvalidParams as resource wasn't found
