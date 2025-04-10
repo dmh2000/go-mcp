@@ -244,6 +244,8 @@ func (s *Server) processMessage(payload []byte) {
 		responseBytes, handleErr = s.handleGetPrompt(id)
 	case mcp.MethodListResources:
 		responseBytes, handleErr = s.handleListResources(id)
+	case mcp.MethodListResourceTemplates: // Added case for templates list
+		responseBytes, handleErr = s.handleListResourceTemplates(id)
 	case mcp.MethodReadResource:
 		responseBytes, handleErr = s.handleReadResource(id, payload)
 	// Add cases for other supported methods like ping, logging/setLevel, etc.

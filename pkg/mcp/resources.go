@@ -7,8 +7,9 @@ import (
 
 // Method names for resource operations.
 const (
-	MethodListResources = "resources/list"
-	MethodReadResource  = "resources/read" // Keep for consistency, even if not used yet
+	MethodListResources         = "resources/list"
+	MethodReadResource          = "resources/read"
+	MethodListResourceTemplates = "resources/templates/list" // Added for resource templates
 )
 
 // Resource represents a known resource the server can read.
@@ -26,6 +27,19 @@ type Resource struct {
 	URI string `json:"uri"`
 }
 
+// ResourceTemplate describes a template for resources available on the server.
+type ResourceTemplate struct {
+	Annotations *Annotations `json:"annotations,omitempty"`
+	// Description is a human-readable description of the template.
+	Description string `json:"description,omitempty"`
+	// MimeType is the MIME type for resources matching this template, if uniform.
+	MimeType string `json:"mimeType,omitempty"`
+	// Name is a human-readable name for the type of resource this template refers to.
+	Name string `json:"name"`
+	// URITemplate is an RFC 6570 URI template.
+	URITemplate string `json:"uriTemplate"`
+}
+
 // ListResourcesParams defines the parameters for a "resources/list" request.
 type ListResourcesParams struct {
 	// Cursor is an opaque token for pagination.
@@ -40,6 +54,22 @@ type ListResourcesResult struct {
 	NextCursor string `json:"nextCursor,omitempty"`
 	// Resources is the list of resources found.
 	Resources []Resource `json:"resources"`
+}
+
+// ListResourceTemplatesParams defines the parameters for a "resources/templates/list" request.
+type ListResourceTemplatesParams struct {
+	// Cursor is an opaque token for pagination.
+	Cursor string `json:"cursor,omitempty"`
+}
+
+// ListResourceTemplatesResult defines the result structure for a "resources/templates/list" response.
+type ListResourceTemplatesResult struct {
+	// Meta contains reserved protocol metadata.
+	Meta map[string]interface{} `json:"_meta,omitempty"`
+	// NextCursor is an opaque token for the next page of results.
+	NextCursor string `json:"nextCursor,omitempty"`
+	// ResourceTemplates is the list of resource templates found.
+	ResourceTemplates []ResourceTemplate `json:"resourceTemplates"`
 }
 
 // ReadResourceParams defines the parameters for a "resources/read" request.
@@ -129,7 +159,49 @@ func UnmarshalListResourcesResponse(data []byte) (*ListResourcesResult, RequestI
 	return &result, resp.ID, nil, nil
 }
 
-// MarshalReadResourceRequest creates a JSON-RPC request for the resources/read method.
+// MarshalListResourceTemplatesRequest creates a JSON-RPC request for the resources/templates/list method.
+// The id can be a string or an integer. If params is nil, default empty params will be used.
+func MarshalListResourceTemplatesRequest(id RequestID, params *ListResourceTemplatesParams) ([]byte, error) {
+	var p interface{}
+	if params != nil {
+		p = params
+	} else {
+		p = struct{}{} // Empty object for params if none specified
+	}
+
+	req := RPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  MethodListResourceTemplates,
+		Params:  p,
+		ID:      id,
+	}
+	return json.Marshal(req)
+}
+
+// UnmarshalListResourceTemplatesResponse parses a JSON-RPC response for a resources/templates/list request.
+func UnmarshalListResourceTemplatesResponse(data []byte) (*ListResourceTemplatesResult, RequestID, *RPCError, error) {
+	var resp RPCResponse
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal RPC response: %w", err)
+	}
+
+	if resp.Error != nil {
+		return nil, resp.ID, resp.Error, nil
+	}
+
+	if len(resp.Result) == 0 || string(resp.Result) == "null" {
+		return nil, resp.ID, nil, fmt.Errorf("received response with missing or null result field for method %s", MethodListResourceTemplates)
+	}
+
+	var result ListResourceTemplatesResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return nil, resp.ID, nil, fmt.Errorf("failed to unmarshal ListResourceTemplatesResult from response result: %w", err)
+	}
+
+	return &result, resp.ID, nil, nil
+}
+
+// MarshalReadResourcesRequest creates a JSON-RPC request for the resources/read method.
 // The id can be a string or an integer.
 func MarshalReadResourcesRequest(id RequestID, params ReadResourceParams) ([]byte, error) {
 	req := RPCRequest{

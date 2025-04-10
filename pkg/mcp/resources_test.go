@@ -54,6 +54,137 @@ func TestMarshalListResourcesRequest(t *testing.T) {
 	}
 }
 
+func TestMarshalListResourceTemplatesRequest(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      RequestID
+		params  *ListResourceTemplatesParams
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "nil params, string id",
+			id:     "tmpl-list-1",
+			params: nil,
+			want:   `{"jsonrpc":"2.0","method":"resources/templates/list","params":{},"id":"tmpl-list-1"}`,
+		},
+		{
+			name:   "with params, int id",
+			id:     601,
+			params: &ListResourceTemplatesParams{Cursor: "tmpl-cursor-xyz"},
+			want:   `{"jsonrpc":"2.0","method":"resources/templates/list","params":{"cursor":"tmpl-cursor-xyz"},"id":601}`,
+		},
+		{
+			name:   "empty params, int id",
+			id:     602,
+			params: &ListResourceTemplatesParams{},
+			want:   `{"jsonrpc":"2.0","method":"resources/templates/list","params":{},"id":602}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := MarshalListResourceTemplatesRequest(tt.id, tt.params)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalListResourceTemplatesRequest() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil {
+				equal, err := jsonEqual(got, []byte(tt.want))
+				if err != nil {
+					t.Fatalf("Error comparing JSON: %v", err)
+				}
+				if !equal {
+					t.Errorf("MarshalListResourceTemplatesRequest() got = %s, want %s", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestUnmarshalListResourceTemplatesResponse(t *testing.T) {
+	sampleTemplate := ResourceTemplate{
+		Name:        "random_data",
+		URITemplate: "data://random_data?{length}",
+		Description: "Generates random data",
+		MimeType:    "text/plain",
+	}
+	sampleResult := ListResourceTemplatesResult{
+		ResourceTemplates: []ResourceTemplate{sampleTemplate},
+		NextCursor:        "next-tmpl-page",
+	}
+	resultJSON, _ := json.Marshal(sampleResult)
+
+	tests := []struct {
+		name       string
+		data       string
+		wantResult *ListResourceTemplatesResult
+		wantID     RequestID
+		wantErr    *RPCError
+		parseErr   bool
+	}{
+		{
+			name:       "valid response, string id",
+			data:       `{"jsonrpc":"2.0","result":` + string(resultJSON) + `,"id":"tmpl-res-1"}`,
+			wantResult: &sampleResult,
+			wantID:     "tmpl-res-1",
+		},
+		{
+			name:       "valid response, int id",
+			data:       `{"jsonrpc":"2.0","result":` + string(resultJSON) + `,"id":610}`,
+			wantResult: &sampleResult,
+			wantID:     float64(610),
+		},
+		{
+			name:   "rpc error response",
+			data:   `{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid Request"},"id":611}`,
+			wantID: float64(611),
+			wantErr: &RPCError{
+				Code:    -32600,
+				Message: "Invalid Request",
+			},
+		},
+		{
+			name:     "malformed json",
+			data:     `{"jsonrpc":"2.0", "result":`,
+			parseErr: true,
+		},
+		{
+			name:     "missing result field",
+			data:     `{"jsonrpc":"2.0","id":612}`,
+			parseErr: true,
+		},
+		{
+			name:     "null result field",
+			data:     `{"jsonrpc":"2.0","result":null,"id":613}`,
+			parseErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotResult, gotID, gotErr, parseErr := UnmarshalListResourceTemplatesResponse([]byte(tt.data))
+
+			if (parseErr != nil) != tt.parseErr {
+				t.Fatalf("UnmarshalListResourceTemplatesResponse() parseErr = %v, want parseErr %v", parseErr, tt.parseErr)
+			}
+			if tt.parseErr {
+				return
+			}
+
+			if !reflect.DeepEqual(gotErr, tt.wantErr) {
+				t.Errorf("UnmarshalListResourceTemplatesResponse() gotErr = %v, want %v", gotErr, tt.wantErr)
+			}
+			if !reflect.DeepEqual(gotID, tt.wantID) {
+				t.Errorf("UnmarshalListResourceTemplatesResponse() gotID = %v, want %v", gotID, tt.wantID)
+			}
+			if !reflect.DeepEqual(gotResult, tt.wantResult) {
+				t.Errorf("UnmarshalListResourceTemplatesResponse() gotResult = %+v, want %+v", gotResult, tt.wantResult)
+			}
+		})
+	}
+}
+
 func TestUnmarshalListResourcesResponse(t *testing.T) {
 	sampleResource := Resource{
 		Name: "app.log",

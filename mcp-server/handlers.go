@@ -162,20 +162,35 @@ func (s *Server) handleGetPrompt(id mcp.RequestID) ([]byte, error) {
 func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handle  : resources/list request (ID: %v)", id)
 
-	// Define the static random_data resource
-	randomDataResource := mcp.Resource{
-		Name:        "random_data",
-		URI:         "data://random_data", // Base URI for the resource type
-		Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
-		MimeType:    "text/plain",
-		// Size is unknown until length is specified
-	}
-
-	// TODO: Add other resources here if needed
-	resources := []mcp.Resource{randomDataResource}
+	// This method lists *concrete* resources. Templates are listed via resources/templates/list.
+	// Since random_data is now a template, we return an empty list here.
+	// If there were other concrete resources (e.g., files), they would be listed here.
+	resources := []mcp.Resource{}
 
 	result := mcp.ListResourcesResult{
 		Resources: resources,
+		// NextCursor: "", // Implement pagination if needed
+	}
+	return s.marshalResponse(id, result)
+}
+
+// handleListResourceTemplates handles the "resources/templates/list" request.
+func (s *Server) handleListResourceTemplates(id mcp.RequestID) ([]byte, error) {
+	s.logger.Printf("Handle  : resources/templates/list request (ID: %v)", id)
+
+	// Define the random_data template
+	randomDataTemplate := mcp.ResourceTemplate{
+		Name:        "random_data",
+		URITemplate: "data://random_data?{length}", // RFC 6570 template
+		Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
+		MimeType:    "text/plain",
+	}
+
+	// TODO: Add other resource templates here if needed
+	templates := []mcp.ResourceTemplate{randomDataTemplate}
+
+	result := mcp.ListResourceTemplatesResult{
+		ResourceTemplates: templates,
 		// NextCursor: "", // Implement pagination if needed
 	}
 	return s.marshalResponse(id, result)
