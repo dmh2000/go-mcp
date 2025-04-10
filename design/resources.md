@@ -67,18 +67,38 @@ framework. it will test the functions in pkg/mcp/resources.go for proper marshal
 I want to change mcp-server/handlers.go to delegate the actual processing to a separate file. modify handleReadRe source so that it checks which resource is being accessed based on the uri. when it determines the resource it needs to process, call a function in a separate file. in this case, when handleReadResource determines the uri is for data://random_data, perform the processing in an already existing file "random.go". this will make it more straightforward to add more resources in the future.  
 
 
+now the mcp-server needs to support 'resource templates'. refer to design/schema.json for their structure.  here are examples of the request and response for the random_data uri. make any changes required so the resource read of data://random_data?{length} handles the length argument.
 
-CP-SERVER: 2025/04/09 16:28:39 main.go:36: MCP Server starting...
-MCP-SERVER: 2025/04/09 16:28:39 main.go:37: Logging to file: ./mcp-server.log
-MCP-SERVER: 2025/04/09 16:28:39 main.go:46: Server initialized, starting run loop.
-MCP-SERVER: 2025/04/09 16:28:39 server.go:101: Server Run() started.
-MCP-SERVER: 2025/04/09 16:28:39 server.go:64: Message type : method=initialize
-MCP-SERVER: 2025/04/09 16:28:39 server.go:175: Receive : {"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"sampling":{},"roots":{"listChanged":true}},"clientInfo":{"name":"mcp-inspector","version":"0.8.2"}}}
-MCP-SERVER: 2025/04/09 16:28:39 handlers.go:62: Initialize params were not RawMessage initially, re-marshalled: {"capabilities":{"roots":{"listChanged":true},"sampling":{}},"clientInfo":{"name":"mcp-inspector","version":"0.8.2"},"protocolVersion":"2024-11-05"}
-MCP-SERVER: 2025/04/09 16:28:39 handlers.go:78: Received Initialize Request (ID: 0): ClientInfo={Name:mcp-inspector Version:0.8.2}, ProtocolVersion=2024-11-05, Caps={Experimental:map[] Roots:0xc0000b25e7 Sampling:map[]}
-MCP-SERVER: 2025/04/09 16:28:39 handlers.go:121: Prepared Initialize Response (ID: 0): ServerInfo={Name:GoMCPExampleServer Version:0.1.0}, ProtocolVersion=2024-11-05, Caps={Experimental:map[] Logging:map[] Prompts:<nil> Resources:0xc0000b2648 Tools:<nil>}
-MCP-SERVER: 2025/04/09 16:28:39 server.go:290: Send   : {"jsonrpc":"2.0","result":{"capabilities":{"resources":{}},"instructions":"Welcome to the Go MCP Example Server! The 'random_data' resource is available via resources/read.","protocolVersion":"2024-11-05","serverInfo":{"name":"GoMCPExampleServer","version":"0.1.0"}},"id":0}
-MCP-SERVER: 2025/04/09 16:28:39 server.go:192: Initialize response sent
-MCP-SERVER: 2025/04/09 16:28:39 server.go:64: Message type : method=notifications/initialized
-MCP-SERVER: 2025/04/09 16:28:39 server.go:175: Receive : {"jsonrpc":"2.0","method":"notifications/initialized"}
-MCP-SERVER: 2025/04/09 16:28:39 server.go:207: Warning: Received duplicate 'notifications/initialized' notification after already initialized. Ignoring.
+Add a handler for resources/templates/list and add support for data://random_data?{length} 
+request:
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "resources/templates/list"
+}
+
+response:
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "resourceTemplates": [
+      {
+        "uriTemplate": "data://random_data?{length}",
+        "name": "random_data",
+        "description": "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
+        "mimeType": "text/plain"
+      },
+    ]
+  }
+}
+
+{
+  "contents": [
+    {
+      "uri": "data://random_data?length=8",
+      "mimeType": "text/plain",
+      "text": "q7O|7;{L"
+    }
+  ]
+}

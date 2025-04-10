@@ -23,6 +23,14 @@ const (
 	maxRandomDataLength = 1024
 )
 
+// Define the random_data template
+var RandomDataTemplate mcp.ResourceTemplate = mcp.ResourceTemplate{
+	Name:        "random_data",
+	URITemplate: "data://random_data?length={length}", // RFC 6570 template
+	Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
+	MimeType:    "text/plain",
+}
+
 // RandomData generates a cryptographically secure random string of ASCII characters
 // of the specified length using rejection sampling on raw bytes.
 // Returns an error if length <= 0, length exceeds maxRandomDataLength, or if reading random data fails.

@@ -178,16 +178,8 @@ func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
 func (s *Server) handleListResourceTemplates(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handle  : resources/templates/list request (ID: %v)", id)
 
-	// Define the random_data template
-	randomDataTemplate := mcp.ResourceTemplate{
-		Name:        "random_data",
-		URITemplate: "data://random_data?{length}", // RFC 6570 template
-		Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
-		MimeType:    "text/plain",
-	}
-
 	// TODO: Add other resource templates here if needed
-	templates := []mcp.ResourceTemplate{randomDataTemplate}
+	templates := []mcp.ResourceTemplate{RandomDataTemplate}
 
 	result := mcp.ListResourceTemplatesResult{
 		ResourceTemplates: templates,
@@ -207,7 +199,6 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
-	s.logger.Printf("ReadResource base request unmarshalled: %+v", req) // Added log line
 
 	// Explanation: While req.Params could be accessed directly as map[string]interface{},
 	// re-marshalling and then unmarshalling into the specific params struct provides:
@@ -232,8 +223,6 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil) // InvalidParams as content was wrong
 		return s.marshalErrorResponse(id, rpcErr)
 	}
-
-	s.logger.Printf("ReadResource request URI: %s", params.URI)
 
 	// Parse the URI
 	parsedURI, err := url.Parse(params.URI)
