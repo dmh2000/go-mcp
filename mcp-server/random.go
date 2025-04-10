@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"sqirvy/mcp/pkg/mcp"
 	"math/big" // Added for crypto/rand.Int
+	"sqirvy/mcp/pkg/mcp"
 )
 
 const (
