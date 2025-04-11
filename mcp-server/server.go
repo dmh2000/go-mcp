@@ -237,7 +237,8 @@ func (s *Server) processMessage(payload []byte) {
 	case mcp.MethodListTools:
 		responseBytes, handleErr = s.handleListTools(id)
 	case mcp.MethodCallTool:
-		responseBytes, handleErr = s.handleCallTool(id)
+		// Pass the full payload to handleCallTool for parsing params
+		responseBytes, handleErr = s.handleCallTool(id, payload)
 	case mcp.MethodListPrompts:
 		responseBytes, handleErr = s.handleListPrompts(id)
 	case mcp.MethodGetPrompt:

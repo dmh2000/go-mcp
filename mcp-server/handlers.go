@@ -119,22 +119,76 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 
 func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handle  : tools/list request (ID: %v)", id)
-	// TODO: Implement actual tool listing logic if/when tools are added.
-	// For now, return empty list.
+	s.logger.Printf("Handle  : tools/list request (ID: %v)", id)
+
+	// Define the ping tool
+	pingTool := mcp.Tool{
+		Name:        pingToolName, // Use constant from ping.go
+		Description: fmt.Sprintf("Pings the hardcoded network address %s once.", pingTargetIP),
+		InputSchema: mcp.ToolInputSchema{ // No input arguments needed
+			"type":       "object",
+			"properties": map[string]interface{}{},
+		},
+	}
+
+	// TODO: Add other tools here if needed.
+	tools := []mcp.Tool{pingTool}
+
 	result := mcp.ListToolsResult{
-		Tools: []mcp.Tool{},
+		Tools: tools,
 		// NextCursor: "", // Omit if no pagination needed yet
 	}
 	// Marshal the success response
 	return s.marshalResponse(id, result)
 }
 
-func (s *Server) handleCallTool(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : tools/call request (ID: %v) - Not Implemented", id)
-	// TODO: Implement tool calling logic later.
-	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'tools/call' not implemented", nil)
-	// Marshal the error response
-	return s.marshalErrorResponse(id, rpcErr)
+// handleCallTool parses the tool call request and routes to the specific tool handler.
+// Note: This function is now primarily responsible for parsing and routing.
+// The actual tool logic is delegated (e.g., to handlePingTool).
+func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error) {
+	s.logger.Printf("Handle  : tools/call request (ID: %v)", id)
+
+	var req mcp.RPCRequest
+	var params mcp.CallToolParams
+
+	// Unmarshal the base request to access params
+	if err := json.Unmarshal(payload, &req); err != nil {
+		err = fmt.Errorf("failed to unmarshal base tool call request: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Marshal params back to bytes
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		err = fmt.Errorf("failed to re-marshal tool call params: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Unmarshal into the specific CallToolParams struct
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		err = fmt.Errorf("failed to unmarshal specific tool call params: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Route based on the tool name
+	switch params.Name {
+	case pingToolName:
+		// Delegate to the specific handler in ping.go
+		return s.handlePingTool(id, params)
+	// Add cases for other tools here
+	// case "another_tool":
+	//     return s.handleAnotherTool(id, params)
+	default:
+		s.logger.Printf("Received call for unknown tool '%s' (ID: %v)", params.Name, id)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, fmt.Sprintf("Tool '%s' not found", params.Name), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
 }
 
 func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
