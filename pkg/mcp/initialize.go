@@ -43,9 +43,7 @@ type ServerCapabilities struct {
 	// Logging indicates support for sending log messages.
 	Logging map[string]interface{} `json:"logging,omitempty"` // Use map for flexibility
 	// Prompts indicates support for prompt templates.
-	Prompts *struct {
-		ListChanged bool `json:"listChanged,omitempty"`
-	} `json:"prompts,omitempty"`
+	Prompts *ServerCapabilitiesPrompts `json:"prompts,omitempty"`
 	// Resources indicates support for resources.
 	Resources *ServerCapabilitiesResources `json:"resources,omitempty"`
 	// Tools indicates support for tools.
