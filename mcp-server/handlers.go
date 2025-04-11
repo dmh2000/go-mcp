@@ -193,7 +193,7 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 
 func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handle  : prompts/list request (ID: %v)", id)
-	
+
 	// Define the sqirvy_query prompt
 	sqirvyQueryPrompt := mcp.Prompt{
 		Name:        sqirvyQueryPromptName,
