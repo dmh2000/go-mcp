@@ -107,3 +107,6 @@ response
 ===================================================================
 
 create a file, pkg/mcp/tools_test.go, that tests marshalling and unmarshaling tools/list and tools/call functions. 
+
+
+{"jsonrpc":"2.0","result":{"capabilities":{"resources":{},"tools":{}},"instructions":"Welcome to the Go MCP Example Server! The 'random_data' resource and 'ping' tool are available.","protocolVersion":"2024-11-05","serverInfo":{"name":"GoMCPExampleServer","version":"0.1.0"}},"id":0}

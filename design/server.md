@@ -102,3 +102,21 @@ Traceback (most recent call last): File "/home/dmh2000/projects/mcp/test/./stdio
 main() File "/home/dmh2000/projects/mcp/test/./stdio_reader.py", line 62, in main read_stdin_task = anyio.create_task_group() ^^^^^^^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/anyio/_core/_tasks.py", line 158, in create_task_group return get_async_backend().create_task_group() ^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/anyio/_core/_eventloop.py", line 156, in get_async_backend asynclib_name = sniffio.current_async_library() ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/sniffio/_impl.py", line 93, in current_async_library raise AsyncLibraryNotFoundError( sniffio._impl.AsyncLibraryNotFoundError: unknown async library, or not in async context
 Traceback (most recent call last): File "/home/dmh2000/projects/mcp/test/./stdio_reader.py", line 76, in <module> main() File "/home/dmh2000/projects/mcp/test/./stdio_reader.py", line 62, in main
 read_stdin_task = anyio.create_task_group() ^^^^^^^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/anyio/_core/_tasks.py", line 158, in create_task_group return get_async_backend().create_task_group() ^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/anyio/_core/_eventloop.py", line 156, in get_async_backend asynclib_name = sniffio.current_async_library() ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ File "/home/dmh2000/.local/miniconda3/envs/aider/lib/python3.12/site-packages/sniffio/_impl.py", line 93, in current_async_library raise AsyncLibraryNotFoundError( sniffio._impl.AsyncLibraryNotFoundError: unknown async library, or not in
+
+
+================================================================================================
+#### the mcp-client and mcp-server communicate with each other, however when I try to connect to the server with another known good client, it does not connect. is there a problem in transport.go/readMessage. it uses the net/textproto reader. is that compatible with json-rpc?  
+
+You are correct to question the transport layer, as that's a common source of interoperability issues.
+
+However, the use of `net/textproto` in `readMessage` is actually **correct** for the standard transport protocol used by MCP (which is derived from the Language Server Protocol). This protocol requires messages to be framed with:
+
+1.  HTTP-style headers (like `Content-Length: NNN\r\n`).
+2.  A blank line (`\r\n`).
+3.  The JSON payload itself.
+
+......
+
+#### But the jsonrpc protocol does not use HTTP headers
+
+After that I backed out what the ai did and scafford in what I thought was correct, and then let the AI fix it up and integrate it into the code. then the transport started working.

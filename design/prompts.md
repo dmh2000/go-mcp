@@ -110,8 +110,12 @@ create a file, pkg/mcp/prompts_test.go, that tests marshalling and unmarshaling 
 
 the schema for the model context protocol is in file design/schema.json. can you analyze that schema for me and create a summary of the request and response message types. write the result in a new file, "design/messages.md'. use markdown for the output text          
 
+
 using design/schema.json, add an apendix with two sections: "client to server" to design/messages.md. the first section will include for each client to server request and associated server response, add a simple example of the request and response json. The second section will include for each server to client request and the associated client response
 
 
 ===================================================================
 
+I want to add a new MCP promt that pings network address 192.168.5.4. the tools will be named ping. that will required adding the tool the the handleListTools function, and then it will need to add it to the handleCallTool function. then create a new file, ping.go, that will contain the handler for calling the tool, and then a function names 'ping' that will actually execute the ping command. it will send one ping request and then return the results to the tool handler. then the tool handler will return those results to the mcp client.
+
+I want to add a new MCP prompt named sqirvy_query. that will require adding the prompt to the handleListPrompts function, and then it will need to add it to the handleGetPrompt function for when a client calls it.  create a new file, mcp-server/sqirvy_query.go, this file will contain the handler for calling the prompt, and then a function named "sqirvy_prompt" that returns a prompt as a string. the prompt handler will return the prompt from sqirvy_prompt. the structure is similar to the code in ping.go, except it supports the prompts/list and prompts/get functions instead of tool calls.
