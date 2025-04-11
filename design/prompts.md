@@ -104,3 +104,14 @@ response
 ===================================================================
 
 create a file, pkg/mcp/prompts_test.go, that tests marshalling and unmarshaling ompts/list and prompts/get functions. 
+
+===================================================================
+
+
+the schema for the model context protocol is in file design/schema.json. can you analyze that schema for me and create a summary of the request and response message types. write the result in a new file, "design/messages.md'. use markdown for the output text          
+
+using design/schema.json, add an apendix with two sections: "client to server" to design/messages.md. the first section will include for each client to server request and associated server response, add a simple example of the request and response json. The second section will include for each server to client request and the associated client response
+
+
+===================================================================
+

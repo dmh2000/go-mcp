@@ -2,13 +2,8 @@ package main
 
 import (
 	"encoding/json"
-	// "errors" // No longer needed here
 	"fmt"
-	"net/url" // Added for URI parsing
-
-	// "strconv" // No longer needed here
-	// "strings" // No longer needed here
-	// Use the absolute module path
+	"net/url"
 	"sqirvy/mcp/pkg/mcp"
 )
 
@@ -261,21 +256,3 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 // MCPPackageHelper is a dummy struct to hang the MarshalInitializeResponse method on,
 // simulating it being part of the mcp package. Remove this if that function is moved.
 type MCPPackageHelper struct{}
-
-// MarshalInitializeResponse is a helper to create the full RPCResponse structure
-// for an InitializeResult. This function should ideally be in pkg/mcp but is here
-// for simplicity as we are not modifying pkg/mcp directly.
-// NOTE: This specific marshaller is actually not needed anymore as the generic
-// s.marshalResponse() in server.go handles this case. Kept for history, can be removed.
-// func (m *MCPPackageHelper) MarshalInitializeResponse(id mcp.RequestID, result mcp.InitializeResult) ([]byte, error) {
-// 	resultBytes, err := json.Marshal(result)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to marshal InitializeResult: %w", err)
-// 	}
-// 	resp := mcp.RPCResponse{
-// 		JSONRPC: mcp.JSONRPCVersion,
-// 		Result:  resultBytes,
-// 		ID:      id,
-// 	}
-// 	return json.Marshal(resp)
-// }
