@@ -96,11 +96,11 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 			// Explicitly state no capabilities initially.
 			// Explicitly state capabilities.
 			// Logging:   map[string]interface{}{}, // Example: Empty object indicates basic support
-			// Prompts:   &mcp.ServerCapabilitiesPrompts{ListChanged: false},
+			Prompts:   &mcp.ServerCapabilitiesPrompts{ListChanged: false},
 			Resources: &mcp.ServerCapabilitiesResources{ListChanged: false, Subscribe: false}, // Announce resource support
 			Tools:     &mcp.ServerCapabilitiesTools{ListChanged: false},                       // Announce tool support (ping tool added)
 		},
-		Instructions: "Welcome to the Go MCP Example Server! The 'random_data' resource and 'ping' tool are available.", // Optional, updated instructions
+		Instructions: "Welcome to the Go MCP Example Server! The 'random_data' resource, 'ping' tool, and 'sqirvy_query' prompt are available.", // Optional, updated instructions
 	}
 
 	// Marshal the successful response using the server's helper
