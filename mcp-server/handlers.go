@@ -193,19 +193,65 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 
 func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
 	s.logger.Printf("Handle  : prompts/list request (ID: %v)", id)
-	// TODO: Implement actual prompt listing logic.
+	
+	// Define the sqirvy_query prompt
+	sqirvyQueryPrompt := mcp.Prompt{
+		Name:        sqirvyQueryPromptName,
+		Description: "A prompt for querying information using the Sqirvy system",
+		Arguments: []mcp.PromptArgument{
+			{Name: "query", Description: "The user's query", Required: true},
+		},
+	}
+
+	// Add prompts to the result
 	result := mcp.ListPromptsResult{
-		Prompts: []mcp.Prompt{},
+		Prompts: []mcp.Prompt{sqirvyQueryPrompt},
 		// NextCursor: "",
 	}
 	return s.marshalResponse(id, result)
 }
 
-func (s *Server) handleGetPrompt(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : prompts/get request (ID: %v) - Not Implemented", id)
-	// TODO: Implement prompt retrieval logic.
-	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, "Method 'prompts/get' not implemented", nil)
-	return s.marshalErrorResponse(id, rpcErr)
+func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, error) {
+	s.logger.Printf("Handle  : prompts/get request (ID: %v)", id)
+
+	var req mcp.RPCRequest
+	var params mcp.GetPromptParams
+
+	// Unmarshal the base request to access params
+	if err := json.Unmarshal(payload, &req); err != nil {
+		err = fmt.Errorf("failed to unmarshal base get prompt request: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Marshal params back to bytes
+	paramsBytes, err := json.Marshal(req.Params)
+	if err != nil {
+		err = fmt.Errorf("failed to re-marshal get prompt params: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Unmarshal into the specific GetPromptParams struct
+	if err := json.Unmarshal(paramsBytes, &params); err != nil {
+		err = fmt.Errorf("failed to unmarshal specific get prompt params: %w", err)
+		s.logger.Println(err.Error())
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
+
+	// Route based on the prompt name
+	switch params.Name {
+	case sqirvyQueryPromptName:
+		// Delegate to the specific handler in sqirvy_query.go
+		return s.handleSqirvyQueryPrompt(id, params)
+	default:
+		s.logger.Printf("Received get request for unknown prompt '%s' (ID: %v)", params.Name, id)
+		rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, fmt.Sprintf("Prompt '%s' not found", params.Name), nil)
+		return s.marshalErrorResponse(id, rpcErr)
+	}
 }
 
 func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
