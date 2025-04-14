@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	resources "sqirvy/mcp/mcp-server/resources" // Import the new resources package
 	"sqirvy/mcp/pkg/mcp"
