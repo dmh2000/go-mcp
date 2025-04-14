@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings" // Added for HasPrefix and TrimPrefix
 )
 
 // ReadFileResource reads the content of a file specified by a file:// URI.
@@ -33,14 +34,30 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 		logger.Printf("Warning: file URI host '%s' ignored, treating path as '%s'", parsedURI.Host, filePath)
 	}
 
-	// Ensure the path is absolute and clean
-	filePath = filepath.Clean(filePath)
-	if !filepath.IsAbs(filePath) && runtime.GOOS != "windows" { // Windows paths might start with drive letter
-		return nil, "", fmt.Errorf("file URI path must be absolute: %s", parsedURI.Path)
+	// Get the project root (current working directory)
+	projectRoot, err := os.Getwd()
+	if err != nil {
+		logger.Printf("Error getting working directory: %v", err)
+		return nil, "", fmt.Errorf("internal server error: could not determine project root")
 	}
-	// TODO: Add security checks here to prevent accessing files outside allowed directories (path traversal).
+	logger.Printf("Project root directory: %s", projectRoot)
 
-	logger.Printf("Attempting to read file: %s", filePath)
+	// Treat the URI path as relative to the project root.
+	// Strip leading '/' from the URI path.
+	relativePath := strings.TrimPrefix(parsedURI.Path, "/")
+
+	// Join the project root with the relative path and clean it.
+	filePath = filepath.Join(projectRoot, relativePath)
+	filePath = filepath.Clean(filePath)
+
+	// Security Check: Ensure the final path is still within the project root.
+	// This helps prevent path traversal attacks (e.g., file:///../outside_project).
+	if !strings.HasPrefix(filePath, projectRoot) {
+		logger.Printf("Security Alert: Attempt to access file outside project root. Requested URI: %s, Resolved Path: %s", uri, filePath)
+		return nil, "", fmt.Errorf("permission denied: cannot access files outside project root")
+	}
+
+	logger.Printf("Attempting to read file relative to project root: %s", filePath)
 
 	file, err := os.Open(filePath)
 	if err != nil {
