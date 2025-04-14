@@ -21,7 +21,7 @@
                 "--server-path",
                 "../bin/mcp-server",
                 "--server-log",
-                "./mcp-server.log"
+                "../bin/mcp-server.log"
             ]
         }
     ]
