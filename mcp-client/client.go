@@ -153,6 +153,11 @@ func (c *Client) Run() error {
 		return err // Error already logged
 	}
 
+	// Read File Resource
+	if err := c.readFileResource("file:///documents/example.txt"); err != nil {
+		return err // Error already logged
+	}
+
 	c.logger.Println("All client operations complete. Client will now terminate.")
 	return nil // Success
 }
