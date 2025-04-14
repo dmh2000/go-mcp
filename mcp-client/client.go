@@ -124,71 +124,10 @@ func (c *Client) Run() error {
 	}
 	c.logger.Println("MCP handshake complete.")
 
-	// 5. Call the 'ping' tool
-	pingID := c.nextID()
-	pingParams := mcp.CallToolParams{
-		Name: "ping",
-		// No arguments needed for this specific ping tool
+	// Call Ping Tool
+	if err := c.callPingTool(); err != nil {
+		return err // Error already logged in callPingTool
 	}
-	pingRequestBytes, err := mcp.MarshalCallToolRequest(pingID, pingParams)
-	if err != nil {
-		c.logger.Printf("Failed to marshal ping request: %v", err)
-		return fmt.Errorf("failed to marshal ping request: %w", err)
-	}
-
-	c.logger.Println("Sending ping tool request...")
-	if err := c.transport.WriteMessage(pingRequestBytes); err != nil {
-		c.logger.Printf("Failed to send ping request: %v", err)
-		return fmt.Errorf("failed to send ping request: %w", err)
-	}
-
-	// 6. Wait for Ping Response
-	c.logger.Println("Waiting for ping response...")
-	pingResponseBytes, err := c.transport.ReadMessage()
-	if err != nil {
-		c.logger.Printf("Failed to read ping response: %v", err)
-		return fmt.Errorf("failed to read ping response: %w", err)
-	}
-	c.logger.Printf("Received ping response JSON: %s", string(pingResponseBytes))
-
-	// 7. Process Ping Response
-	pingResult, pingRespID, pingRPCErr, pingParseErr := mcp.UnmarshalCallToolResponse(pingResponseBytes)
-	if pingParseErr != nil {
-		c.logger.Printf("Failed to parse ping response: %v", pingParseErr)
-		return fmt.Errorf("failed to parse ping response: %w", pingParseErr)
-	}
-	if fmt.Sprintf("%v", pingRespID) != fmt.Sprintf("%v", pingID) {
-		c.logger.Printf("Ping response ID mismatch. Got: %v (%T), Want: %v (%T)", pingRespID, pingRespID, pingID, pingID)
-		return fmt.Errorf("ping response ID mismatch. Got: %v, Want: %v", pingRespID, pingID)
-	}
-	if pingRPCErr != nil {
-		c.logger.Printf("Received RPC error in ping response: Code=%d, Message=%s, Data=%v", pingRPCErr.Code, pingRPCErr.Message, pingRPCErr.Data)
-		return fmt.Errorf("received RPC error in ping response: %w", pingRPCErr)
-	}
-	if pingResult == nil {
-		c.logger.Println("Ping response contained no result.")
-		return fmt.Errorf("ping response contained no result")
-	}
-
-	// 8. Log Ping Output from Content
-	if len(pingResult.Content) > 0 {
-		// Assuming the first content item is the text output
-		var textContent mcp.TextContent
-		if err := json.Unmarshal(pingResult.Content[0], &textContent); err != nil {
-			c.logger.Printf("Failed to unmarshal ping result content into TextContent: %v", err)
-			// Log the raw content as fallback
-			c.logger.Printf("Raw ping result content[0]: %s", string(pingResult.Content[0]))
-		} else {
-			if pingResult.IsError {
-				c.logger.Printf("Ping tool reported an error: %s", textContent.Text)
-			} else {
-				c.logger.Printf("Ping tool output:\n%s", textContent.Text)
-			}
-		}
-	} else {
-		c.logger.Println("Ping response result contained no content.")
-	}
-	c.logger.Println("Ping tool call complete.")
 
 	// 9. Read the 'random_data' resource
 	readID := c.nextID()
@@ -253,9 +192,145 @@ func (c *Client) Run() error {
 	} else {
 		c.logger.Println("Read resource response result contained no content.")
 	}
-	c.logger.Println("Read resource call complete.")
+	// Get Sqirvy Query Prompt
+	if err := c.getSqirvyQueryPrompt(); err != nil {
+		return err // Error already logged in getSqirvyQueryPrompt
+	}
 
-	// 13. Get the 'sqirvy_query' prompt
+	c.logger.Println("All client operations complete. Client will now terminate.")
+	return nil // Success
+}
+
+// --- Helper Functions for MCP Calls ---
+
+// callPingTool sends a tools/call request for the 'ping' tool and processes the response.
+func (c *Client) callPingTool() error {
+	pingID := c.nextID()
+	pingParams := mcp.CallToolParams{
+		Name: "ping",
+		// No arguments needed for this specific ping tool
+	}
+	pingRequestBytes, err := mcp.MarshalCallToolRequest(pingID, pingParams)
+	if err != nil {
+		c.logger.Printf("Failed to marshal ping request: %v", err)
+		return fmt.Errorf("failed to marshal ping request: %w", err)
+	}
+
+	c.logger.Println("Sending ping tool request...")
+	if err := c.transport.WriteMessage(pingRequestBytes); err != nil {
+		c.logger.Printf("Failed to send ping request: %v", err)
+		return fmt.Errorf("failed to send ping request: %w", err)
+	}
+
+	c.logger.Println("Waiting for ping response...")
+	pingResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read ping response: %v", err)
+		return fmt.Errorf("failed to read ping response: %w", err)
+	}
+	c.logger.Printf("Received ping response JSON: %s", string(pingResponseBytes))
+
+	pingResult, pingRespID, pingRPCErr, pingParseErr := mcp.UnmarshalCallToolResponse(pingResponseBytes)
+	if pingParseErr != nil {
+		c.logger.Printf("Failed to parse ping response: %v", pingParseErr)
+		return fmt.Errorf("failed to parse ping response: %w", pingParseErr)
+	}
+	if fmt.Sprintf("%v", pingRespID) != fmt.Sprintf("%v", pingID) {
+		c.logger.Printf("Ping response ID mismatch. Got: %v (%T), Want: %v (%T)", pingRespID, pingRespID, pingID, pingID)
+		return fmt.Errorf("ping response ID mismatch. Got: %v, Want: %v", pingRespID, pingID)
+	}
+	if pingRPCErr != nil {
+		c.logger.Printf("Received RPC error in ping response: Code=%d, Message=%s, Data=%v", pingRPCErr.Code, pingRPCErr.Message, pingRPCErr.Data)
+		return fmt.Errorf("received RPC error in ping response: %w", pingRPCErr)
+	}
+	if pingResult == nil {
+		c.logger.Println("Ping response contained no result.")
+		return fmt.Errorf("ping response contained no result")
+	}
+
+	if len(pingResult.Content) > 0 {
+		var textContent mcp.TextContent
+		if err := json.Unmarshal(pingResult.Content[0], &textContent); err != nil {
+			c.logger.Printf("Failed to unmarshal ping result content into TextContent: %v", err)
+			c.logger.Printf("Raw ping result content[0]: %s", string(pingResult.Content[0]))
+		} else {
+			if pingResult.IsError {
+				c.logger.Printf("Ping tool reported an error: %s", textContent.Text)
+			} else {
+				c.logger.Printf("Ping tool output:\n%s", textContent.Text)
+			}
+		}
+	} else {
+		c.logger.Println("Ping response result contained no content.")
+	}
+	c.logger.Println("Ping tool call complete.")
+	return nil
+}
+
+// readRandomDataResource sends a resources/read request for 'data://random_data' and processes the response.
+func (c *Client) readRandomDataResource() error {
+	readID := c.nextID()
+	readParams := mcp.ReadResourceParams{
+		URI: "data://random_data?length=10", // Request 10 random characters
+	}
+	readRequestBytes, err := mcp.MarshalReadResourcesRequest(readID, readParams)
+	if err != nil {
+		c.logger.Printf("Failed to marshal read resource request: %v", err)
+		return fmt.Errorf("failed to marshal read resource request: %w", err)
+	}
+
+	c.logger.Printf("Sending read resource request for URI: %s", readParams.URI)
+	if err := c.transport.WriteMessage(readRequestBytes); err != nil {
+		c.logger.Printf("Failed to send read resource request: %v", err)
+		return fmt.Errorf("failed to send read resource request: %w", err)
+	}
+
+	c.logger.Println("Waiting for read resource response...")
+	readResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read resource response: %v", err)
+		return fmt.Errorf("failed to read resource response: %w", err)
+	}
+	c.logger.Printf("Received read resource response JSON: %s", string(readResponseBytes))
+
+	readResult, readRespID, readRPCErr, readParseErr := mcp.UnmarshalReadResourcesResponse(readResponseBytes)
+	if readParseErr != nil {
+		c.logger.Printf("Failed to parse read resource response: %v", readParseErr)
+		return fmt.Errorf("failed to parse read resource response: %w", readParseErr)
+	}
+	if fmt.Sprintf("%v", readRespID) != fmt.Sprintf("%v", readID) {
+		c.logger.Printf("Read resource response ID mismatch. Got: %v (%T), Want: %v (%T)", readRespID, readRespID, readID, readID)
+		return fmt.Errorf("read resource response ID mismatch. Got: %v, Want: %v", readRespID, readID)
+	}
+	if readRPCErr != nil {
+		c.logger.Printf("Received RPC error in read resource response: Code=%d, Message=%s, Data=%v", readRPCErr.Code, readRPCErr.Message, readRPCErr.Data)
+		return fmt.Errorf("received RPC error in read resource response: %w", readRPCErr)
+	}
+	if readResult == nil {
+		c.logger.Println("Read resource response contained no result.")
+		return fmt.Errorf("read resource response contained no result")
+	}
+
+	if len(readResult.Contents) > 0 {
+		var textContent mcp.TextResourceContents
+		if err := json.Unmarshal(readResult.Contents[0], &textContent); err != nil {
+			c.logger.Printf("Failed to unmarshal read resource result content into TextResourceContents: %v", err)
+			c.logger.Printf("Raw read resource result content[0]: %s", string(readResult.Contents[0]))
+		} else {
+			if textContent.URI != readParams.URI {
+				c.logger.Printf("Warning: Read resource response URI mismatch. Got: %s, Want: %s", textContent.URI, readParams.URI)
+			}
+			c.logger.Printf("Random data resource (%s) content:\n%s", textContent.URI, textContent.Text)
+		}
+	} else {
+		c.logger.Println("Read resource response result contained no content.")
+	}
+	c.logger.Println("Read resource call complete.")
+	return nil
+}
+
+// getSqirvyQueryPrompt sends a prompts/get request for 'sqirvy_query' and processes the response.
+func (c *Client) getSqirvyQueryPrompt() error {
 	promptID := c.nextID()
 	promptParams := mcp.GetPromptParams{
 		Name: "sqirvy_query",
@@ -275,7 +350,6 @@ func (c *Client) Run() error {
 		return fmt.Errorf("failed to send get prompt request: %w", err)
 	}
 
-	// 14. Wait for Get Prompt Response
 	c.logger.Println("Waiting for get prompt response...")
 	promptResponseBytes, err := c.transport.ReadMessage()
 	if err != nil {
@@ -284,7 +358,6 @@ func (c *Client) Run() error {
 	}
 	c.logger.Printf("Received get prompt response JSON: %s", string(promptResponseBytes))
 
-	// 15. Process Get Prompt Response
 	promptResult, promptRespID, promptRPCErr, promptParseErr := mcp.UnmarshalGetPromptResponse(promptResponseBytes)
 	if promptParseErr != nil {
 		c.logger.Printf("Failed to parse get prompt response: %v", promptParseErr)
@@ -303,13 +376,10 @@ func (c *Client) Run() error {
 		return fmt.Errorf("get prompt response contained no result")
 	}
 
-	// 16. Log Prompt Content
 	if len(promptResult.Messages) > 0 {
-		// Assuming the first message contains the main prompt text
 		var textContent mcp.TextContent
 		if err := json.Unmarshal(promptResult.Messages[0].Content, &textContent); err != nil {
 			c.logger.Printf("Failed to unmarshal prompt message content into TextContent: %v", err)
-			// Log the raw content as fallback
 			c.logger.Printf("Raw prompt message content[0]: %s", string(promptResult.Messages[0].Content))
 		} else {
 			c.logger.Printf("Prompt '%s' (Role: %s) content:\n%s", promptParams.Name, promptResult.Messages[0].Role, textContent.Text)
@@ -318,6 +388,6 @@ func (c *Client) Run() error {
 		c.logger.Println("Get prompt response result contained no messages.")
 	}
 
-	c.logger.Println("Get prompt call complete. Client will now terminate.")
-	return nil // Success
+	c.logger.Println("Get prompt call complete.")
+	return nil
 }
