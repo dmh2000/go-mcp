@@ -253,7 +253,71 @@ func (c *Client) Run() error {
 	} else {
 		c.logger.Println("Read resource response result contained no content.")
 	}
+	c.logger.Println("Read resource call complete.")
 
-	c.logger.Println("Read resource call complete. Client will now terminate.")
+	// 13. Get the 'sqirvy_query' prompt
+	promptID := c.nextID()
+	promptParams := mcp.GetPromptParams{
+		Name: "sqirvy_query",
+		Arguments: map[string]string{
+			"query": "What is the Model Context Protocol?", // Provide the required argument
+		},
+	}
+	promptRequestBytes, err := mcp.MarshalGetPromptRequest(promptID, promptParams)
+	if err != nil {
+		c.logger.Printf("Failed to marshal get prompt request: %v", err)
+		return fmt.Errorf("failed to marshal get prompt request: %w", err)
+	}
+
+	c.logger.Printf("Sending get prompt request for prompt: %s", promptParams.Name)
+	if err := c.transport.WriteMessage(promptRequestBytes); err != nil {
+		c.logger.Printf("Failed to send get prompt request: %v", err)
+		return fmt.Errorf("failed to send get prompt request: %w", err)
+	}
+
+	// 14. Wait for Get Prompt Response
+	c.logger.Println("Waiting for get prompt response...")
+	promptResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read prompt response: %v", err)
+		return fmt.Errorf("failed to read prompt response: %w", err)
+	}
+	c.logger.Printf("Received get prompt response JSON: %s", string(promptResponseBytes))
+
+	// 15. Process Get Prompt Response
+	promptResult, promptRespID, promptRPCErr, promptParseErr := mcp.UnmarshalGetPromptResponse(promptResponseBytes)
+	if promptParseErr != nil {
+		c.logger.Printf("Failed to parse get prompt response: %v", promptParseErr)
+		return fmt.Errorf("failed to parse get prompt response: %w", promptParseErr)
+	}
+	if fmt.Sprintf("%v", promptRespID) != fmt.Sprintf("%v", promptID) {
+		c.logger.Printf("Get prompt response ID mismatch. Got: %v (%T), Want: %v (%T)", promptRespID, promptRespID, promptID, promptID)
+		return fmt.Errorf("get prompt response ID mismatch. Got: %v, Want: %v", promptRespID, promptID)
+	}
+	if promptRPCErr != nil {
+		c.logger.Printf("Received RPC error in get prompt response: Code=%d, Message=%s, Data=%v", promptRPCErr.Code, promptRPCErr.Message, promptRPCErr.Data)
+		return fmt.Errorf("received RPC error in get prompt response: %w", promptRPCErr)
+	}
+	if promptResult == nil {
+		c.logger.Println("Get prompt response contained no result.")
+		return fmt.Errorf("get prompt response contained no result")
+	}
+
+	// 16. Log Prompt Content
+	if len(promptResult.Messages) > 0 {
+		// Assuming the first message contains the main prompt text
+		var textContent mcp.TextContent
+		if err := json.Unmarshal(promptResult.Messages[0].Content, &textContent); err != nil {
+			c.logger.Printf("Failed to unmarshal prompt message content into TextContent: %v", err)
+			// Log the raw content as fallback
+			c.logger.Printf("Raw prompt message content[0]: %s", string(promptResult.Messages[0].Content))
+		} else {
+			c.logger.Printf("Prompt '%s' (Role: %s) content:\n%s", promptParams.Name, promptResult.Messages[0].Role, textContent.Text)
+		}
+	} else {
+		c.logger.Println("Get prompt response result contained no messages.")
+	}
+
+	c.logger.Println("Get prompt call complete. Client will now terminate.")
 	return nil // Success
 }
