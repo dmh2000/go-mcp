@@ -122,7 +122,73 @@ func (c *Client) Run() error {
 		c.logger.Printf("Failed to send initialized notification: %v", err)
 		return fmt.Errorf("failed to send initialized notification: %w", err)
 	}
+	c.logger.Println("MCP handshake complete.")
 
-	c.logger.Println("MCP handshake complete. Client will now terminate.")
+	// 5. Call the 'ping' tool
+	pingID := c.nextID()
+	pingParams := mcp.CallToolParams{
+		Name: "ping",
+		// No arguments needed for this specific ping tool
+	}
+	pingRequestBytes, err := mcp.MarshalCallToolRequest(pingID, pingParams)
+	if err != nil {
+		c.logger.Printf("Failed to marshal ping request: %v", err)
+		return fmt.Errorf("failed to marshal ping request: %w", err)
+	}
+
+	c.logger.Println("Sending ping tool request...")
+	if err := c.transport.WriteMessage(pingRequestBytes); err != nil {
+		c.logger.Printf("Failed to send ping request: %v", err)
+		return fmt.Errorf("failed to send ping request: %w", err)
+	}
+
+	// 6. Wait for Ping Response
+	c.logger.Println("Waiting for ping response...")
+	pingResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read ping response: %v", err)
+		return fmt.Errorf("failed to read ping response: %w", err)
+	}
+	c.logger.Printf("Received ping response JSON: %s", string(pingResponseBytes))
+
+	// 7. Process Ping Response
+	pingResult, pingRespID, pingRPCErr, pingParseErr := mcp.UnmarshalCallToolResponse(pingResponseBytes)
+	if pingParseErr != nil {
+		c.logger.Printf("Failed to parse ping response: %v", pingParseErr)
+		return fmt.Errorf("failed to parse ping response: %w", pingParseErr)
+	}
+	if fmt.Sprintf("%v", pingRespID) != fmt.Sprintf("%v", pingID) {
+		c.logger.Printf("Ping response ID mismatch. Got: %v (%T), Want: %v (%T)", pingRespID, pingRespID, pingID, pingID)
+		return fmt.Errorf("ping response ID mismatch. Got: %v, Want: %v", pingRespID, pingID)
+	}
+	if pingRPCErr != nil {
+		c.logger.Printf("Received RPC error in ping response: Code=%d, Message=%s, Data=%v", pingRPCErr.Code, pingRPCErr.Message, pingRPCErr.Data)
+		return fmt.Errorf("received RPC error in ping response: %w", pingRPCErr)
+	}
+	if pingResult == nil {
+		c.logger.Println("Ping response contained no result.")
+		return fmt.Errorf("ping response contained no result")
+	}
+
+	// 8. Log Ping Output from Content
+	if len(pingResult.Content) > 0 {
+		// Assuming the first content item is the text output
+		var textContent mcp.TextContent
+		if err := json.Unmarshal(pingResult.Content[0], &textContent); err != nil {
+			c.logger.Printf("Failed to unmarshal ping result content into TextContent: %v", err)
+			// Log the raw content as fallback
+			c.logger.Printf("Raw ping result content[0]: %s", string(pingResult.Content[0]))
+		} else {
+			if pingResult.IsError {
+				c.logger.Printf("Ping tool reported an error: %s", textContent.Text)
+			} else {
+				c.logger.Printf("Ping tool output:\n%s", textContent.Text)
+			}
+		}
+	} else {
+		c.logger.Println("Ping response result contained no content.")
+	}
+
+	c.logger.Println("Ping tool call complete. Client will now terminate.")
 	return nil // Success
 }
