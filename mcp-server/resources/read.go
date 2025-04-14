@@ -86,3 +86,47 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 
 	return content, mimeType, nil
 }
+
+// findProjectRoot searches upwards from the executable's directory for go.mod
+// to determine the project root. Falls back to CWD if go.mod is not found.
+func findProjectRoot(logger *log.Logger) (string, error) {
+	executablePath, err := os.Executable()
+	if err != nil {
+		logger.Printf("Error getting executable path: %v", err)
+		return "", fmt.Errorf("could not determine executable path: %w", err)
+	}
+	currentDir := filepath.Dir(executablePath)
+	logger.Printf("Searching for project root starting from executable directory: %s", currentDir)
+
+	// Walk up the directory tree
+	for {
+		goModPath := filepath.Join(currentDir, "go.mod")
+		// logger.Printf("Checking for go.mod at: %s", goModPath) // Verbose logging
+		if _, err := os.Stat(goModPath); err == nil {
+			// Found go.mod, this directory is the project root
+			logger.Printf("Found go.mod at %s, using %s as project root", goModPath, currentDir)
+			return currentDir, nil
+		} else if !os.IsNotExist(err) {
+			// Some other error occurred trying to stat go.mod
+			logger.Printf("Error checking for go.mod in %s: %v", currentDir, err)
+			// Decide whether to continue or return error. Let's return error.
+			return "", fmt.Errorf("error checking for go.mod in %s: %w", currentDir, err)
+		}
+
+		// Move up one directory
+		parentDir := filepath.Dir(currentDir)
+		if parentDir == currentDir {
+			// Reached the root directory without finding go.mod
+			logger.Printf("Reached filesystem root, go.mod not found. Falling back to CWD.")
+			// Fallback to CWD as a last resort
+			cwd, err := os.Getwd()
+			if err != nil {
+				logger.Printf("Error getting CWD as fallback: %v", err)
+				return "", fmt.Errorf("go.mod not found and could not get CWD: %w", err)
+			}
+			logger.Printf("Using CWD %s as project root", cwd)
+			return cwd, nil
+		}
+		currentDir = parentDir
+	}
+}
