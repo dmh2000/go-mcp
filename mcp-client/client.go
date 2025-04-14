@@ -223,6 +223,9 @@ func (c *Client) callPingTool() error {
 	return nil
 }
 
+// Add this import
+import "strings"
+
 // readRandomDataResource sends a resources/read request for 'data://random_data' and processes the response.
 func (c *Client) readRandomDataResource() error {
 	readID := c.nextID()
@@ -282,6 +285,80 @@ func (c *Client) readRandomDataResource() error {
 		c.logger.Println("Read resource response result contained no content.")
 	}
 	c.logger.Println("Read resource call complete.")
+	return nil
+}
+
+// readFileResource sends a resources/read request for a given file URI and processes the response.
+func (c *Client) readFileResource(fileURI string) error {
+	readID := c.nextID()
+	readParams := mcp.ReadResourceParams{
+		URI: fileURI,
+	}
+	readRequestBytes, err := mcp.MarshalReadResourcesRequest(readID, readParams)
+	if err != nil {
+		c.logger.Printf("Failed to marshal read file resource request for %s: %v", fileURI, err)
+		return fmt.Errorf("failed to marshal read file resource request: %w", err)
+	}
+
+	c.logger.Printf("Sending read resource request for URI: %s", readParams.URI)
+	if err := c.transport.WriteMessage(readRequestBytes); err != nil {
+		c.logger.Printf("Failed to send read file resource request: %v", err)
+		return fmt.Errorf("failed to send read file resource request: %w", err)
+	}
+
+	c.logger.Println("Waiting for read file resource response...")
+	readResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read file resource response: %v", err)
+		return fmt.Errorf("failed to read file resource response: %w", err)
+	}
+	c.logger.Printf("Received read file resource response JSON: %s", string(readResponseBytes))
+
+	readResult, readRespID, readRPCErr, readParseErr := mcp.UnmarshalReadResourcesResponse(readResponseBytes)
+	if readParseErr != nil {
+		c.logger.Printf("Failed to parse read file resource response: %v", readParseErr)
+		return fmt.Errorf("failed to parse read file resource response: %w", readParseErr)
+	}
+	if fmt.Sprintf("%v", readRespID) != fmt.Sprintf("%v", readID) {
+		c.logger.Printf("Read file resource response ID mismatch. Got: %v (%T), Want: %v (%T)", readRespID, readRespID, readID, readID)
+		return fmt.Errorf("read file resource response ID mismatch. Got: %v, Want: %v", readRespID, readID)
+	}
+	if readRPCErr != nil {
+		// Log the specific RPC error received from the server
+		c.logger.Printf("Received RPC error in read file resource response: Code=%d, Message=%s, Data=%v", readRPCErr.Code, readRPCErr.Message, readRPCErr.Data)
+		// Check if the error indicates the file wasn't found (using InvalidParams code as per server logic)
+		if readRPCErr.Code == mcp.ErrorCodeInvalidParams && strings.Contains(readRPCErr.Message, "not found") {
+			c.logger.Printf("Server reported file not found for URI: %s", fileURI)
+			// Return nil here as the client successfully communicated, but the file doesn't exist on the server side.
+			// Or return the RPC error if the client should treat this as a failure. For now, log and continue.
+			return nil
+		}
+		// Return other RPC errors as client failures
+		return fmt.Errorf("received RPC error in read file resource response: %w", readRPCErr)
+	}
+	if readResult == nil {
+		c.logger.Println("Read file resource response contained no result.")
+		return fmt.Errorf("read file resource response contained no result")
+	}
+
+	if len(readResult.Contents) > 0 {
+		// Attempt to unmarshal as TextResourceContents first
+		var textContent mcp.TextResourceContents
+		if err := json.Unmarshal(readResult.Contents[0], &textContent); err == nil && textContent.Text != "" {
+			if textContent.URI != readParams.URI {
+				c.logger.Printf("Warning: Read file resource response URI mismatch. Got: %s, Want: %s", textContent.URI, readParams.URI)
+			}
+			c.logger.Printf("File resource (%s, Mime: %s) content:\n%s", textContent.URI, textContent.MimeType, textContent.Text)
+		} else {
+			// If not text, try BlobResourceContents (or log raw if neither)
+			// TODO: Add BlobResourceContents handling if needed
+			c.logger.Printf("Received non-text or unparseable content for file resource %s.", fileURI)
+			c.logger.Printf("Raw read file resource result content[0]: %s", string(readResult.Contents[0]))
+		}
+	} else {
+		c.logger.Printf("Read file resource response result for %s contained no content.", fileURI)
+	}
+	c.logger.Printf("Read file resource call for %s complete.", fileURI)
 	return nil
 }
 
