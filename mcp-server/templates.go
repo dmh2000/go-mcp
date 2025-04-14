@@ -1,23 +1,15 @@
 package main
 
 import (
-	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
 
-	"math/big" // Added for crypto/rand.Int
+	// Added for crypto/rand.Int
+	resources "sqirvy/mcp/mcp-server/resources"
 	"sqirvy/mcp/pkg/mcp"
-)
-
-const (
-	// Define the set of allowed characters (alphanumeric)
-	allowedChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	// Define the maximum allowed length for random data generation
-	maxRandomDataLength = 1024
 )
 
 // Define the random_data template
@@ -26,33 +18,6 @@ var RandomDataTemplate mcp.ResourceTemplate = mcp.ResourceTemplate{
 	URITemplate: "data://random_data?length={length}", // RFC 6570 template
 	Description: "Returns a string of random ASCII characters. Use URI like 'data://random_data?length=N' in resources/read, where N is the desired length.",
 	MimeType:    "text/plain",
-}
-
-// RandomData generates a cryptographically secure random string of alphanumeric characters
-// (a-z, A-Z, 0-9) of the specified length.
-// Returns an error if length <= 0, length exceeds maxRandomDataLength, or if generating random indices fails.
-func RandomData(length int) (string, error) {
-	if length <= 0 {
-		return "", errors.New("length must be positive")
-	}
-	if length > maxRandomDataLength {
-		return "", fmt.Errorf("requested length %d exceeds maximum allowed length %d", length, maxRandomDataLength)
-	}
-
-	result := make([]byte, length)
-	numChars := big.NewInt(int64(len(allowedChars)))
-
-	for i := 0; i < length; i++ {
-		// Generate a random index within the bounds of the allowed character set
-		randomIndex, err := rand.Int(rand.Reader, numChars)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate random index: %w", err)
-		}
-		// Select the character at the random index
-		result[i] = allowedChars[randomIndex.Int64()]
-	}
-
-	return string(result), nil
 }
 
 // handleRandomDataResource processes a read request specifically for the data://random_data URI.
@@ -78,7 +43,7 @@ func (s *Server) handleRandomDataResource(id mcp.RequestID, params mcp.ReadResou
 	}
 
 	// Generate random data using the function from resources.go
-	randomString, err := RandomData(length)
+	randomString, err := resources.RandomData(length)
 	if err != nil {
 		// RandomData already logs details, just wrap the error for the RPC response
 		err = fmt.Errorf("failed to generate random data for URI %s: %w", params.URI, err)

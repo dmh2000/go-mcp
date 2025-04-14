@@ -4,20 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 
+	prompts "sqirvy/mcp/mcp-server/prompts"
 	"sqirvy/mcp/pkg/mcp"
 )
 
 const (
 	sqirvyQueryPromptName = "sqirvy_query"
 )
-
-// sqirvyPrompt returns the prompt text for the sqirvy_query prompt
-func sqirvyPrompt() string {
-	return `You are an AI assistant that helps users query information from various sources.
-Please respond to the user's query in a helpful, accurate, and concise manner.
-If you don't know the answer, it's better to say so than to make up information.
-Always cite your sources when providing factual information.`
-}
 
 // handleSqirvyQueryPrompt handles the "prompts/get" request for the sqirvy_query prompt
 // It returns the prompt messages as defined in the sqirvyPrompt function
@@ -27,7 +20,7 @@ func (s *Server) handleSqirvyQueryPrompt(id mcp.RequestID, params mcp.GetPromptP
 	// Create a text content message with the prompt
 	content := mcp.TextContent{
 		Type: "text",
-		Text: sqirvyPrompt(),
+		Text: prompts.QueryPrompt(),
 	}
 
 	// Marshal the content into json.RawMessage
