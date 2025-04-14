@@ -138,6 +138,21 @@ func (c *Client) Run() error {
 		return err // Error already logged in getSqirvyQueryPrompt
 	}
 
+	// List Tools
+	if err := c.listTools(); err != nil {
+		return err // Error already logged
+	}
+
+	// List Resource Templates
+	if err := c.listResourceTemplates(); err != nil {
+		return err // Error already logged
+	}
+
+	// List Prompts
+	if err := c.listPrompts(); err != nil {
+		return err // Error already logged
+	}
+
 	c.logger.Println("All client operations complete. Client will now terminate.")
 	return nil // Success
 }
