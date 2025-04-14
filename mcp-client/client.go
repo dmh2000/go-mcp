@@ -129,68 +129,9 @@ func (c *Client) Run() error {
 		return err // Error already logged in callPingTool
 	}
 
-	// 9. Read the 'random_data' resource
-	readID := c.nextID()
-	readParams := mcp.ReadResourceParams{
-		URI: "data://random_data?length=10", // Request 10 random characters
-	}
-	readRequestBytes, err := mcp.MarshalReadResourcesRequest(readID, readParams)
-	if err != nil {
-		c.logger.Printf("Failed to marshal read resource request: %v", err)
-		return fmt.Errorf("failed to marshal read resource request: %w", err)
-	}
-
-	c.logger.Printf("Sending read resource request for URI: %s", readParams.URI)
-	if err := c.transport.WriteMessage(readRequestBytes); err != nil {
-		c.logger.Printf("Failed to send read resource request: %v", err)
-		return fmt.Errorf("failed to send read resource request: %w", err)
-	}
-
-	// 10. Wait for Read Resource Response
-	c.logger.Println("Waiting for read resource response...")
-	readResponseBytes, err := c.transport.ReadMessage()
-	if err != nil {
-		c.logger.Printf("Failed to read resource response: %v", err)
-		return fmt.Errorf("failed to read resource response: %w", err)
-	}
-	c.logger.Printf("Received read resource response JSON: %s", string(readResponseBytes))
-
-	// 11. Process Read Resource Response
-	readResult, readRespID, readRPCErr, readParseErr := mcp.UnmarshalReadResourcesResponse(readResponseBytes)
-	if readParseErr != nil {
-		c.logger.Printf("Failed to parse read resource response: %v", readParseErr)
-		return fmt.Errorf("failed to parse read resource response: %w", readParseErr)
-	}
-	if fmt.Sprintf("%v", readRespID) != fmt.Sprintf("%v", readID) {
-		c.logger.Printf("Read resource response ID mismatch. Got: %v (%T), Want: %v (%T)", readRespID, readRespID, readID, readID)
-		return fmt.Errorf("read resource response ID mismatch. Got: %v, Want: %v", readRespID, readID)
-	}
-	if readRPCErr != nil {
-		c.logger.Printf("Received RPC error in read resource response: Code=%d, Message=%s, Data=%v", readRPCErr.Code, readRPCErr.Message, readRPCErr.Data)
-		return fmt.Errorf("received RPC error in read resource response: %w", readRPCErr)
-	}
-	if readResult == nil {
-		c.logger.Println("Read resource response contained no result.")
-		return fmt.Errorf("read resource response contained no result")
-	}
-
-	// 12. Log Random Data from Content
-	if len(readResult.Contents) > 0 {
-		// Assuming the first content item is the text output
-		var textContent mcp.TextResourceContents
-		if err := json.Unmarshal(readResult.Contents[0], &textContent); err != nil {
-			c.logger.Printf("Failed to unmarshal read resource result content into TextResourceContents: %v", err)
-			// Log the raw content as fallback
-			c.logger.Printf("Raw read resource result content[0]: %s", string(readResult.Contents[0]))
-		} else {
-			// Check if the URI matches the request
-			if textContent.URI != readParams.URI {
-				c.logger.Printf("Warning: Read resource response URI mismatch. Got: %s, Want: %s", textContent.URI, readParams.URI)
-			}
-			c.logger.Printf("Random data resource (%s) content:\n%s", textContent.URI, textContent.Text)
-		}
-	} else {
-		c.logger.Println("Read resource response result contained no content.")
+	// Read Random Data Resource
+	if err := c.readRandomDataResource(); err != nil {
+		return err // Error already logged in readRandomDataResource
 	}
 	// Get Sqirvy Query Prompt
 	if err := c.getSqirvyQueryPrompt(); err != nil {
