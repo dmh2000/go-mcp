@@ -74,6 +74,7 @@ func (c *Client) Run() error {
 		c.logger.Printf("Failed to read initialize response: %v", err)
 		return fmt.Errorf("failed to read initialize response: %w", err)
 	}
+	c.logger.Printf("Received initialize response JSON: %s", string(initResponseBytes)) // Log the raw JSON
 
 	// 3. Process Initialize Response
 	initResult, respID, rpcErr, parseErr := mcp.UnmarshalInitializeResponse(initResponseBytes)
