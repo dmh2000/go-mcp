@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
+	"runtime"
 )
 
 // ReadFileResource reads the content of a file specified by a file:// URI.
@@ -70,6 +70,3 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 
 	return content, mimeType, nil
 }
-
-// Helper function needed for path cleaning on Windows
-import "runtime"
