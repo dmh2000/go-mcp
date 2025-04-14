@@ -98,7 +98,56 @@ response:
     {
       "uri": "data://random_data?length=8",
       "mimeType": "text/plain",
-      "text": "q7O|7;{L"
+      "text": "q7O|7;{L",
     }
   ]
 }
+
+// resource/read
+
+{
+  "jsonrpc": "2.0",
+  "method": "resources/read",
+  "params": {
+    "resource_id": "abc123"
+  },
+  "id": 1
+}
+
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "resource_id": "abc123",
+    "name": "Sample Resource",
+    "type": "document",
+    "content": "This is the content of the resource."
+  },
+  "id": 1
+}
+
+==========================================================
+i want to add support for a resources/read request and response in mcp-server. you will probably need to modify handlers.go to register the handler. create new file mcp-server/resources.go and add the mcp handler there. then in directory mcp-server/resources add a function that executes the actual request. refer to design/schema.json for the syntax of a resource/read command. Here are examples of the mcp request and response that should be implemented:
+request
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "resources/read",
+  "params": {
+    "uri": "file:///documents/example.txt"
+  },
+  "id": 42
+}
+
+
+```
+
+response
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "contents": "This is the content of example.txt"
+  },
+  "id": 42
+}
+```
