@@ -6,7 +6,7 @@ import (
 
 	prompts "sqirvy/mcp/mcp-server/prompts"
 	"sqirvy/mcp/pkg/mcp"
-	"sqirvy/mcp/pkg/utils" // Import the custom logger
+	// Import the custom logger
 )
 
 const (
@@ -16,7 +16,7 @@ const (
 // handleSqirvyQueryPrompt handles the "prompts/get" request for the sqirvy_query prompt
 // It returns the prompt messages as defined in the sqirvyPrompt function
 func (s *Server) handleSqirvyQueryPrompt(id mcp.RequestID, params mcp.GetPromptParams) ([]byte, error) {
-	s.logger.Printf(utils.LevelDebug, "Handle  : prompts/get request for '%s' (ID: %v)", params.Name, id)
+	s.logger.Printf("DEBUG", "Handle  : prompts/get request for '%s' (ID: %v)", params.Name, id)
 
 	// Create a text content message with the prompt
 	content := mcp.TextContent{
@@ -28,7 +28,7 @@ func (s *Server) handleSqirvyQueryPrompt(id mcp.RequestID, params mcp.GetPromptP
 	contentBytes, err := json.Marshal(content)
 	if err != nil {
 		err = fmt.Errorf("failed to marshal sqirvy_query prompt content: %w", err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
