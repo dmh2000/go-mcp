@@ -84,8 +84,9 @@ func TestLoggerOutputLevels(t *testing.T) {
 				t.Errorf("Println() for %s: expectOutput = %v, but got output: '%s'", tt.name, tt.expectOutput, output)
 			}
 
-			if tt.expectOutput && !strings.Contains(output, tt.expectedString) {
-				t.Errorf("Println() for %s: output '%s' does not contain expected string '%s'", tt.name, output, tt.expectedString)
+			// For Println, the expected output is the raw message itself (plus newline)
+			if tt.expectOutput && !strings.Contains(output, tt.message) {
+				t.Errorf("Println() for %s: output '%s' does not contain expected string '%s'", tt.name, output, tt.message)
 			}
 		})
 
@@ -102,6 +103,7 @@ func TestLoggerOutputLevels(t *testing.T) {
 				t.Errorf("Printf() for %s: expectOutput = %v, but got output: '%s'", tt.name, tt.expectOutput, output)
 			}
 
+			// For Printf, the expected output is the formatted string
 			if tt.expectOutput && !strings.Contains(output, tt.expectedString) {
 				t.Errorf("Printf() for %s: output '%s' does not contain expected string '%s'", tt.name, output, tt.expectedString)
 			}
