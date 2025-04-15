@@ -291,6 +291,9 @@ func (s *Server) handleListResourceTemplates(id mcp.RequestID) ([]byte, error) {
 		ResourceTemplates: templates,
 		// NextCursor: "", // Implement pagination if needed
 	}
+	return s.marshalResponse(id, result)
+}
+
 // --- Helper Struct (Remove if MarshalInitializeResponse moves to pkg/mcp) ---
 // MCPPackageHelper is a dummy struct to hang the MarshalInitializeResponse method on,
 // simulating it being part of the mcp package. Remove this if that function is moved.
