@@ -21,7 +21,7 @@ func (s *Server) handleSqirvyQueryPrompt(id mcp.RequestID, params mcp.GetPromptP
 	// Create a text content message with the prompt
 	content := mcp.TextContent{
 		Type: "text",
-		Text: prompts.QueryPrompt(),
+		Text: prompts.QueryPrompt(params.Name, params.Arguments),
 	}
 
 	// Marshal the content into json.RawMessage
