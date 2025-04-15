@@ -8,7 +8,7 @@ import (
 
 	resources "sqirvy/mcp/mcp-server/resources" // Import the resources package (for ReadFileResource)
 	"sqirvy/mcp/pkg/mcp"
-	"sqirvy/mcp/pkg/utils" // Import the custom logger
+	// Import the custom logger
 )
 
 // Define the example file resource as a package-level variable
@@ -24,13 +24,13 @@ var exampleFileResource mcp.Resource = mcp.Resource{
 // It parses the request, determines the resource type (e.g., file, data),
 // calls the appropriate reader function, and formats the response.
 func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, error) {
-	s.logger.Printf(utils.LevelDebug, "Handle  : resources/read request (ID: %v)", id)
+	s.logger.Printf("DEBUG", "Handle  : resources/read request (ID: %v)", id)
 
 	var req mcp.RPCRequest
 	var params mcp.ReadResourceParams
 	if err := json.Unmarshal(payload, &req); err != nil {
 		err = fmt.Errorf("failed to unmarshal base read resource request: %w", err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -46,7 +46,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
 		err = fmt.Errorf("failed to re-marshal read resource params: %w", err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil) // InvalidParams as structure was likely wrong
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -54,7 +54,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 	// Now unmarshal the bytes into the specific params struct
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		err = fmt.Errorf("failed to unmarshal specific read resource params: %w", err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil) // InvalidParams as content was wrong
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -63,7 +63,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 	parsedURI, err := url.Parse(params.URI)
 	if err != nil {
 		err = fmt.Errorf("failed to parse resource URI '%s': %w", params.URI, err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -93,7 +93,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 
 	// --- Handle errors from resource reading ---
 	if resourceErr != nil {
-		s.logger.Printf(utils.LevelDebug, "Error reading resource URI '%s': %v", params.URI, resourceErr)
+		s.logger.Printf("DEBUG", "Error reading resource URI '%s': %v", params.URI, resourceErr)
 		// Determine appropriate RPC error code based on the error type
 		// TODO: Refine error mapping (e.g., distinguish not found, permission denied)
 		rpcErrCode := mcp.ErrorCodeInternalError // Default to internal error
@@ -129,7 +129,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 		// }
 		// For now, return error if not text, as blob isn't fully implemented
 		err = fmt.Errorf("non-text MIME type '%s' handling not fully implemented for URI %s", resourceMimeType, params.URI)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -138,7 +138,7 @@ func (s *Server) handleReadResource(id mcp.RequestID, payload []byte) ([]byte, e
 	contentBytes, err := json.Marshal(resourceContents)
 	if err != nil {
 		err = fmt.Errorf("failed to marshal resource contents for %s: %w", params.URI, err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}

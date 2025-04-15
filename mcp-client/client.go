@@ -370,11 +370,11 @@ func (c *Client) readFileResource(fileURI string) error {
 	return nil
 }
 
-// getSqirvyQueryPrompt sends a prompts/get request for 'sqirvy_query' and processes the response.
+// getSqirvyQueryPrompt sends a prompts/get request for 'query' and processes the response.
 func (c *Client) getSqirvyQueryPrompt() error {
 	promptID := c.nextID()
 	promptParams := mcp.GetPromptParams{
-		Name: "sqirvy_query",
+		Name: "query",
 		Arguments: map[string]string{
 			"query": "What is the Model Context Protocol?", // Provide the required argument
 		},

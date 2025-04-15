@@ -35,13 +35,13 @@ func peekMessageType(logger *utils.Logger, payload []byte) (method string, id mc
 
 	if err := decoder.Decode(&base); err != nil {
 		// Cannot determine type if basic unmarshal fails
-		logger.Printf(utils.LevelDebug, "Failed to decode base JSON-RPC structure: %v", err)
+		logger.Printf("DEBUG", "Failed to decode base JSON-RPC structure: %v", err)
 		return "", nil, false, false, false
 	}
 
 	// Basic JSON-RPC validation
 	if base.JSONRPC != "2.0" {
-		logger.Printf(utils.LevelDebug, "Invalid JSON-RPC version: %s", base.JSONRPC)
+		logger.Printf("DEBUG", "Invalid JSON-RPC version: %s", base.JSONRPC)
 		return "", nil, false, false, false // Not a valid JSON-RPC 2.0 message
 	}
 
@@ -109,8 +109,8 @@ func (s *Server) Run() error {
 			// Process the received message
 			s.processMessage(payload)
 		case <-s.shutdown:
-			s.logger.Println(utils.LevelInfo, "Shutdown signal received. Exiting processing loop.") // INFO level for shutdown
-			return nil                                                                              // Normal shutdown
+			s.logger.Println("DEBUG", "Shutdown signal received. Exiting processing loop.") // INFO level for shutdown
+			return nil                                                                      // Normal shutdown
 		}
 	}
 }
@@ -121,7 +121,7 @@ func (s *Server) Run() error {
 // It exits when the reader encounters an error (like io.EOF).
 func (s *Server) readLoop() {
 	defer func() {
-		s.logger.Println(utils.LevelDebug, "Exiting read loop.")
+		s.logger.Println("DEBUG", "Exiting read loop.")
 		close(s.shutdown) // Signal the main loop to shut down when reading stops
 	}()
 
@@ -132,9 +132,9 @@ func (s *Server) readLoop() {
 		payload, err := s.reader.ReadBytes('\n')
 		if err != nil {
 			if err == io.EOF {
-				s.logger.Println(utils.LevelInfo, "EOF received from reader. Shutting down read loop.") // INFO level for EOF
+				s.logger.Println("DEBUG", "EOF received from reader. Shutting down read loop.") // INFO level for EOF
 			} else {
-				s.logger.Printf(utils.LevelDebug, "Error reading from reader: %v", err)
+				s.logger.Printf("DEBUG", "Error reading from reader: %v", err)
 			}
 			return // Exit loop on EOF or any other error
 		}
@@ -142,13 +142,13 @@ func (s *Server) readLoop() {
 		// Trim trailing newline characters for correct JSON parsing
 		payload = bytes.TrimSpace(payload)
 		if len(payload) == 0 {
-			s.logger.Println(utils.LevelDebug, "Received empty line, skipping.")
+			s.logger.Println("DEBUG", "Received empty line, skipping.")
 			continue // Skip empty lines
 		}
 
 		// Basic validation: Check if it looks like JSON
 		if !(bytes.HasPrefix(payload, []byte("{")) && bytes.HasSuffix(payload, []byte("}"))) {
-			s.logger.Printf(utils.LevelDebug, "Received line does not look like JSON object, skipping: %s", string(payload))
+			s.logger.Printf("DEBUG", "Received line does not look like JSON object, skipping: %s", string(payload))
 			continue
 		}
 
@@ -159,7 +159,7 @@ func (s *Server) readLoop() {
 		case s.incomingMessages <- payload:
 			// Successfully sent to channel
 		default:
-			s.logger.Println(utils.LevelDebug, "Warning: incomingMessages channel full. Discarding message.")
+			s.logger.Println("DEBUG", "Warning: incomingMessages channel full. Discarding message.")
 			// Or potentially block, log more severely, or increase buffer size.
 		}
 	}
@@ -169,7 +169,7 @@ func (s *Server) readLoop() {
 // It also handles the initial state transitions (waiting for initialize, waiting for initialized).
 func (s *Server) processMessage(payload []byte) {
 	method, id, isNotification, isResponse, isError := peekMessageType(s.logger, payload)
-	s.logger.Printf(utils.LevelInfo, "Receive : %s", string(payload)) // INFO for received JSON
+	s.logger.Printf("INFO", "R:%s", string(payload)) // INFO for received JSON
 	// --- State Machine: Before Initialization ---
 	if !s.initialized {
 		// State 1: Waiting for "initialize" request
@@ -178,13 +178,13 @@ func (s *Server) processMessage(payload []byte) {
 			responseBytes, handleErr := s.handleInitializeRequest(id, payload)
 			// Send response (success or error marshalled by handler)
 			if handleErr != nil {
-				s.logger.Printf(utils.LevelDebug, "Error during handling of 'initialize' request (ID: %v): %v", id, handleErr)
+				s.logger.Printf("DEBUG", "Error during handling of 'initialize' request (ID: %v): %v", id, handleErr)
 				os.Exit(1) // Exit if initialization fails critically
 			}
 			if responseBytes != nil {
 				if sendErr := s.sendRawMessage(responseBytes); sendErr != nil {
 					// Use Fatalf for critical send errors
-					s.logger.Fatalf(utils.LevelInfo, "FATAL: Failed to send initialize response/error for request ID %v: %v", id, sendErr)
+					s.logger.Fatalf("DEBUG", "FATAL: Failed to send initialize response/error for request ID %v: %v", id, sendErr)
 				} else {
 					s.initialized = true // Set initialized state after sending response
 				}
@@ -202,20 +202,20 @@ func (s *Server) processMessage(payload []byte) {
 		if method == notificationInitialized || method == "notifications/initialized" {
 			return
 		}
-		s.logger.Printf(utils.LevelDebug, "Received Notification (Method: %s). No response needed.", method)
+		s.logger.Printf("DEBUG", "Received Notification (Method: %s). No response needed.", method)
 		// Handle other specific notifications like $/cancel if needed
 		return
 	}
 
 	if isResponse || isError {
 		// Server shouldn't receive responses unless it sent requests (not implemented yet)
-		s.logger.Printf(utils.LevelDebug, "Warning: Received unexpected Response/Error message (ID: %v, Method: %s, IsError: %t). Ignoring.", id, method, isError)
+		s.logger.Printf("DEBUG", "Warning: Received unexpected Response/Error message (ID: %v, Method: %s, IsError: %t). Ignoring.", id, method, isError)
 		return
 	}
 
 	// It's a Request (must have ID and method, not result/error)
 	if id == nil || method == "" {
-		s.logger.Printf(utils.LevelDebug, "Error: Received message that is not a valid Request, Notification, or Response. Payload: %s", string(payload))
+		s.logger.Printf("DEBUG", "Error: Received message that is not a valid Request, Notification, or Response. Payload: %s", string(payload))
 		// Cannot send error response if ID is missing.
 		return
 	}
@@ -229,7 +229,7 @@ func (s *Server) processMessage(payload []byte) {
 	switch method {
 	case mcp.MethodInitialize:
 		// Handle duplicate 'initialize' request after initialization
-		s.logger.Printf(utils.LevelDebug, "Error: Received duplicate 'initialize' request (ID: %v) after initialization.", id)
+		s.logger.Printf("DEBUG", "Error: Received duplicate 'initialize' request (ID: %v) after initialization.", id)
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, "Server already initialized", nil)
 		responseBytes, handleErr = s.marshalErrorResponse(id, rpcErr) // Use helper
 
@@ -252,18 +252,18 @@ func (s *Server) processMessage(payload []byte) {
 		responseBytes, handleErr = s.handlePingRequest(id)
 	// Add cases for other supported methods like logging/setLevel, etc.
 	default:
-		s.logger.Printf(utils.LevelDebug, "Received unsupported method '%s' for request ID %v", method, id)
+		s.logger.Printf("DEBUG", "Received unsupported method '%s' for request ID %v", method, id)
 		responseBytes, handleErr = createMethodNotFoundResponse(id, method, s.logger)
 	}
 
 	// --- Response Sending ---
 	if handleErr != nil {
 		// The handler failed internally (e.g., failed to marshal its *intended* response/error).
-		s.logger.Printf(utils.LevelDebug, "Error during handling of request (ID: %v, Method: %s): %v", id, method, handleErr)
+		s.logger.Printf("DEBUG", "Error during handling of request (ID: %v, Method: %s): %v", id, method, handleErr)
 		// If responseBytes is not nil here, it means the handler *did* manage to marshal an error response despite the internal error.
 		if responseBytes == nil {
 			// If the handler couldn't even produce an error response, create a generic one.
-			s.logger.Printf(utils.LevelDebug, "Handler failed without producing an error response. Creating generic InternalError.")
+			s.logger.Printf("DEBUG", "Handler failed without producing an error response. Creating generic InternalError.")
 			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, fmt.Sprintf("Internal server error processing method %s", method), nil)
 			responseBytes, _ = mcp.MarshalErrorResponse(id, rpcErr) // Ignore marshal error here, send if possible
 		}
@@ -273,11 +273,11 @@ func (s *Server) processMessage(payload []byte) {
 	if responseBytes != nil {
 		if sendErr := s.sendRawMessage(responseBytes); sendErr != nil {
 			// Use Fatalf for critical send errors
-			s.logger.Fatalf(utils.LevelInfo, "FATAL: Failed to send response/error for request ID %v: %v", id, sendErr)
+			s.logger.Fatalf("DEBUG", "FATAL: Failed to send response/error for request ID %v: %v", id, sendErr)
 		}
 	} else {
 		// This case should ideally not happen if handlers always return marshalled bytes or an error
-		s.logger.Printf(utils.LevelDebug, "Warning: No response bytes generated for request (ID: %v, Method: %s), handleErr was: %v", id, method, handleErr)
+		s.logger.Printf("DEBUG", "Warning: No response bytes generated for request (ID: %v, Method: %s), handleErr was: %v", id, method, handleErr)
 	}
 }
 
@@ -286,20 +286,19 @@ func (s *Server) processMessage(payload []byte) {
 // Errors during the write operation are logged within the goroutine.
 // This function returns immediately (nil error).
 func (s *Server) sendRawMessage(payload []byte) error {
-	s.logger.Printf(utils.LevelInfo, "Send    : %s", string(payload)) // INFO for sent JSON
 	// Launch a goroutine to handle the actual sending
 	go func(p []byte) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
 		if _, err := s.writer.Write(p); err != nil {
-			s.logger.Printf(utils.LevelDebug, "Error in async sendRawMessage: failed to write message payload: %v", err)
+			s.logger.Printf("DEBUG", "Error in async sendRawMessage: failed to write message payload: %v", err)
 			return // Exit goroutine on write error
 		}
 
 		// Add newline after the JSON payload
 		if _, err := s.writer.Write([]byte("\n")); err != nil {
-			s.logger.Printf(utils.LevelDebug, "Error in async sendRawMessage: failed to write newline: %v", err)
+			s.logger.Printf("DEBUG", "Error in async sendRawMessage: failed to write newline: %v", err)
 			// Continue to attempt flush even if newline fails
 		}
 	}(payload) // Pass payload as argument to avoid closure issues
@@ -314,13 +313,13 @@ func (s *Server) marshalResponse(id mcp.RequestID, result interface{}) ([]byte, 
 	resultBytes, err := json.Marshal(result)
 	if err != nil {
 		err = fmt.Errorf("failed to marshal result for response ID %v: %w", id, err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		// Return bytes for an internal error instead
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal response result", nil)
 		errorBytes, marshalErr := mcp.MarshalErrorResponse(id, rpcErr)
 		// If we can't even marshal the error, return the original error and nil bytes
 		if marshalErr != nil {
-			s.logger.Printf(utils.LevelDebug, "CRITICAL: Failed to marshal error response for result marshalling failure: %v", marshalErr)
+			s.logger.Printf("DEBUG", "CRITICAL: Failed to marshal error response for result marshalling failure: %v", marshalErr)
 			return nil, err // Return the original marshalling error
 		}
 		return errorBytes, err // Return the marshalled error bytes and the original error
@@ -335,16 +334,18 @@ func (s *Server) marshalResponse(id mcp.RequestID, result interface{}) ([]byte, 
 	if err != nil {
 		// This is highly unlikely if result marshalling worked, but handle defensively
 		err = fmt.Errorf("failed to marshal final response object for ID %v: %w", id, err)
-		s.logger.Println(utils.LevelDebug, err.Error())
+		s.logger.Println("DEBUG", err.Error())
 		// Return bytes for an internal error instead
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal final response object", nil)
 		errorBytes, marshalErr := mcp.MarshalErrorResponse(id, rpcErr)
 		if marshalErr != nil {
-			s.logger.Printf(utils.LevelDebug, "CRITICAL: Failed to marshal error response for final response marshalling failure: %v", marshalErr)
+			s.logger.Printf("DEBUG", "CRITICAL: Failed to marshal error response for final response marshalling failure: %v", marshalErr)
 			return nil, err // Return the original marshalling error
 		}
 		return errorBytes, err // Return the marshalled error bytes and the original error
 	}
+	// log the response string as type "INFO"
+	s.logger.Printf("INFO", "S:%s", string(respBytes))
 
 	return respBytes, nil // Return marshalled success response bytes and nil error
 }
@@ -356,14 +357,14 @@ func (s *Server) marshalErrorResponse(id mcp.RequestID, rpcErr *mcp.RPCError) ([
 	responseBytes, err := mcp.MarshalErrorResponse(id, rpcErr)
 	if err != nil {
 		// Log the failure to marshal the *intended* error
-		s.logger.Printf(utils.LevelDebug, "CRITICAL: Failed to marshal error response (Code: %d, Msg: %s) for ID %v: %v", rpcErr.Code, rpcErr.Message, id, err)
+		s.logger.Printf("DEBUG", "CRITICAL: Failed to marshal error response (Code: %d, Msg: %s) for ID %v: %v", rpcErr.Code, rpcErr.Message, id, err)
 
 		// Try to marshal a more generic internal error response
 		genericErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal original error response", nil)
 		responseBytes, err = mcp.MarshalErrorResponse(id, genericErr)
 		if err != nil {
 			// If we can't even marshal the generic error, log and return the error
-			s.logger.Printf(utils.LevelDebug, "CRITICAL: Failed to marshal generic error response for ID %v: %v. No error response possible.", id, err)
+			s.logger.Printf("DEBUG", "CRITICAL: Failed to marshal generic error response for ID %v: %v. No error response possible.", id, err)
 			return nil, fmt.Errorf("failed to marshal even generic error response: %w", err)
 		}
 		// Return the generic error bytes, but also the original error that occurred

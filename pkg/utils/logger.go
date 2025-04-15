@@ -37,18 +37,13 @@ func New(out io.Writer, prefix string, flag int, level string) *Logger {
 // SetLevel changes the minimum logging level for the logger using a string ("INFO" or "DEBUG").
 // Defaults to "INFO" if an invalid level string is provided.
 func (l *Logger) SetLevel(level string) {
-	normalizedLevel := strings.ToUpper(level)
-	if normalizedLevel != LevelDebug {
-		normalizedLevel = LevelInfo // Default to INFO
-	}
-	l.level = normalizedLevel
+	l.level = strings.ToUpper(level)
 }
 
 // shouldLog checks if a message with the given level string should be logged.
 func (l *Logger) shouldLog(messageLevel string) bool {
-	normalizedMessageLevel := strings.ToUpper(messageLevel)
-	// Log if the logger level is DEBUG, or if both logger and message level are INFO.
-	return l.level == LevelDebug || normalizedMessageLevel == LevelInfo
+	// print only if it matches, otherwise nothing
+	return messageLevel == l.level
 }
 
 // Printf logs a formatted string if the message level is appropriate.
@@ -56,7 +51,7 @@ func (l *Logger) shouldLog(messageLevel string) bool {
 func (l *Logger) Printf(level string, format string, v ...interface{}) {
 	if l.shouldLog(level) {
 		// Call Output with depth 3 to capture the caller's file/line
-		l.stdLogger.Output(3, fmt.Sprintf(format, v...))
+		l.stdLogger.Output(2, fmt.Sprintf(format, v...))
 	}
 }
 
@@ -65,7 +60,7 @@ func (l *Logger) Printf(level string, format string, v ...interface{}) {
 func (l *Logger) Println(level string, v ...interface{}) {
 	if l.shouldLog(level) {
 		// Call Output with depth 3 to capture the caller's file/line
-		l.stdLogger.Output(3, fmt.Sprintln(v...))
+		l.stdLogger.Output(2, fmt.Sprintln(v...))
 	}
 }
 
@@ -74,7 +69,7 @@ func (l *Logger) Println(level string, v ...interface{}) {
 // Fatal messages are always output.
 func (l *Logger) Fatalf(level string, format string, v ...interface{}) {
 	// Fatal messages are always logged, regardless of level setting.
-	l.stdLogger.Output(3, fmt.Sprintf(format, v...)) // Use Output with depth 3 to capture the caller's file/line
+	l.stdLogger.Output(2, fmt.Sprintf(format, v...)) // Use Output with depth 3 to capture the caller's file/line
 	os.Exit(1)
 }
 
@@ -83,7 +78,7 @@ func (l *Logger) Fatalf(level string, format string, v ...interface{}) {
 // Fatal messages are always output.
 func (l *Logger) Fatalln(level string, v ...interface{}) {
 	// Fatal messages are always logged, regardless of level setting.
-	l.stdLogger.Output(3, fmt.Sprintln(v...)) // Use Output with depth 3 to capture the caller's file/line
+	l.stdLogger.Output(2, fmt.Sprintln(v...)) // Use Output with depth 3 to capture the caller's file/line
 	os.Exit(1)
 }
 

@@ -121,3 +121,8 @@ I want to add a new MCP promt that pings network address 192.168.5.4. the tools 
 I want to add a new MCP prompt named sqirvy_query. that will require adding the prompt to the handleListPrompts function, and then it will need to add it to the handleGetPrompt function for when a client calls it.  create a new file, mcp-server/sqirvy_query.go, this file will contain the handler for calling the prompt, and then a function named "sqirvy_prompt" that returns a prompt as a string. the prompt handler will return the prompt from sqirvy_prompt. the structure is similar to the code in ping.go, except it supports the prompts/list and prompts/get functions instead of tool calls.
 
 can you analyze pkg/mcp and files in mcp-server, and report what types in pkg/mcp are not being used in the mcp-server code.   
+
+
+===================================================================
+
+in mcp-server/handleSqirvyQueryPrompt, the call to prompts.QueryPrompt should pass in the request name and arguments. it needs those to compose a prompt. modify the mcp-server/prompts/query.go::QueryPrompt function to receive those parameters. for now just print the values of the input parameters. leave the rest of the function as is

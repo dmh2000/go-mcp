@@ -10,12 +10,12 @@ import (
 )
 
 const (
-	sqirvyQueryPromptName = "sqirvy_query"
+	QueryPromptName = "query"
 )
 
-// handleSqirvyQueryPrompt handles the "prompts/get" request for the sqirvy_query prompt
+// handleQueryPrompt handles the "prompts/get" request for the sqirvy_query prompt
 // It returns the prompt messages as defined in the sqirvyPrompt function
-func (s *Server) handleSqirvyQueryPrompt(id mcp.RequestID, params mcp.GetPromptParams) ([]byte, error) {
+func (s *Server) handleQueryPrompt(id mcp.RequestID, params mcp.GetPromptParams) ([]byte, error) {
 	s.logger.Printf("DEBUG", "Handle  : prompts/get request for '%s' (ID: %v)", params.Name, id)
 
 	// Create a text content message with the prompt

@@ -2,14 +2,11 @@ package main
 
 import (
 	"sqirvy/mcp/pkg/mcp"
-	"sqirvy/mcp/pkg/utils" // Import the custom logger
 )
 
 // handlePingRequest handles the "ping" request.
 // It simply returns an empty result object as per the spec.
 func (s *Server) handlePingRequest(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf(utils.LevelDebug, "Handle  : ping request (ID: %v)", id)
-
 	// The result for ping is just an empty object.
 	result := map[string]interface{}{} // Empty map represents empty JSON object {}
 
