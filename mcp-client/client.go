@@ -154,6 +154,11 @@ func (c *Client) Run() error {
 		return err // Error already logged
 	}
 
+	// List Resources
+	if err := c.listResources(); err != nil {
+		return err // Error already logged
+	}
+
 	// Read File Resource
 	if err := c.readFileResource("file:///documents/example.txt"); err != nil {
 		return err // Error already logged

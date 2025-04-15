@@ -63,6 +63,65 @@ func (c *Client) listTools() error {
 	return nil
 }
 
+// listResources sends a resources/list request and processes the response.
+func (c *Client) listResources() error {
+	listID := c.nextID()
+	// No parameters needed for a basic list request
+	listRequestBytes, err := mcp.MarshalListResourcesRequest(listID, nil)
+	if err != nil {
+		c.logger.Printf("Failed to marshal list resources request: %v", err)
+		return fmt.Errorf("failed to marshal list resources request: %w", err)
+	}
+
+	c.logger.Println("Sending list resources request...")
+	if err := c.transport.WriteMessage(listRequestBytes); err != nil {
+		c.logger.Printf("Failed to send list resources request: %v", err)
+		return fmt.Errorf("failed to send list resources request: %w", err)
+	}
+
+	c.logger.Println("Waiting for list resources response...")
+	listResponseBytes, err := c.transport.ReadMessage()
+	if err != nil {
+		c.logger.Printf("Failed to read list resources response: %v", err)
+		return fmt.Errorf("failed to read list resources response: %w", err)
+	}
+	c.logger.Printf("Received list resources response JSON: %s", string(listResponseBytes))
+
+	listResult, listRespID, listRPCErr, listParseErr := mcp.UnmarshalListResourcesResponse(listResponseBytes)
+	if listParseErr != nil {
+		c.logger.Printf("Failed to parse list resources response: %v", listParseErr)
+		return fmt.Errorf("failed to parse list resources response: %w", listParseErr)
+	}
+	if fmt.Sprintf("%v", listRespID) != fmt.Sprintf("%v", listID) {
+		c.logger.Printf("List resources response ID mismatch. Got: %v (%T), Want: %v (%T)", listRespID, listRespID, listID, listID)
+		return fmt.Errorf("list resources response ID mismatch. Got: %v, Want: %v", listRespID, listID)
+	}
+	if listRPCErr != nil {
+		c.logger.Printf("Received RPC error in list resources response: Code=%d, Message=%s, Data=%v", listRPCErr.Code, listRPCErr.Message, listRPCErr.Data)
+		return fmt.Errorf("received RPC error in list resources response: %w", listRPCErr)
+	}
+	if listResult == nil {
+		c.logger.Println("List resources response contained no result.")
+		return fmt.Errorf("list resources response contained no result")
+	}
+
+	c.logger.Printf("Available Resources (%d):", len(listResult.Resources))
+	for _, resource := range listResult.Resources {
+		sizeStr := "N/A"
+		if resource.Size != nil {
+			sizeStr = fmt.Sprintf("%d bytes", *resource.Size)
+		}
+		c.logger.Printf("  - Name: %s, URI: %s, Description: %s, MimeType: %s, Size: %s",
+			resource.Name, resource.URI, resource.Description, resource.MimeType, sizeStr)
+	}
+	if listResult.NextCursor != "" {
+		c.logger.Printf("  (Next Cursor: %s)", listResult.NextCursor)
+	}
+
+	c.logger.Println("List resources call complete.")
+	return nil
+}
+
 // listResourceTemplates sends a resources/templates/list request and processes the response.
 func (c *Client) listResourceTemplates() error {
 	listID := c.nextID()
