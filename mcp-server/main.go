@@ -3,8 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath" // Added for path manipulation
