@@ -3,10 +3,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"strings"
 
-	resources "sqirvy/mcp/mcp-server/resources" // Import the new resources package
+	// Import the new resources package
 	"sqirvy/mcp/pkg/mcp"
 )
 
@@ -293,8 +291,3 @@ func (s *Server) handleListResourceTemplates(id mcp.RequestID) ([]byte, error) {
 	}
 	return s.marshalResponse(id, result)
 }
-
-// --- Helper Struct (Remove if MarshalInitializeResponse moves to pkg/mcp) ---
-// MCPPackageHelper is a dummy struct to hang the MarshalInitializeResponse method on,
-// simulating it being part of the mcp package. Remove this if that function is moved.
-type MCPPackageHelper struct{}
