@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 )
 
+// MethodPing is the method name for the ping request.
+const MethodPing = "ping"
+
 // JSONRPCVersion is the fixed JSON-RPC version string.
 const JSONRPCVersion = "2.0"
 

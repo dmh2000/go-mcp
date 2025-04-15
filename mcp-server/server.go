@@ -248,7 +248,9 @@ func (s *Server) processMessage(payload []byte) {
 		responseBytes, handleErr = s.handleListResourceTemplates(id)
 	case mcp.MethodReadResource: // Handle resources/read
 		responseBytes, handleErr = s.handleReadResource(id, payload)
-	// Add cases for other supported methods like ping, logging/setLevel, etc.
+	case mcp.MethodPing: // Handle ping
+		responseBytes, handleErr = s.handlePingRequest(id)
+	// Add cases for other supported methods like logging/setLevel, etc.
 	default:
 		s.logger.Printf(utils.LevelDebug, "Received unsupported method '%s' for request ID %v", method, id)
 		responseBytes, handleErr = createMethodNotFoundResponse(id, method, s.logger)
