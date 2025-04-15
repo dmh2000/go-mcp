@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +23,7 @@ const (
 func peekMessageType(logger *utils.Logger, payload []byte) (method string, id mcp.RequestID, isNotification bool, isResponse bool, isError bool) {
 	var base struct {
 		Method  string          `json:"method"`
-		ID      mcp.RequestID   `json:"id"` // Can be string, number, or null/absent
+		ID      mcp.RequestID   `json:"id"`      // Can be string, number, or null/absent
 		Error   json.RawMessage `json:"error"`   // Check if non-null
 		Result  json.RawMessage `json:"result"`  // Check if non-null
 		Params  json.RawMessage `json:"params"`  // Needed to differentiate req/notification
@@ -67,7 +66,7 @@ func peekMessageType(logger *utils.Logger, payload []byte) (method string, id mc
 // Server handles the MCP communication logic.
 type Server struct {
 	reader           *bufio.Reader
-	writer           io.Writer // Using io.Writer for flexibility, though likely os.Stdout
+	writer           io.Writer     // Using io.Writer for flexibility, though likely os.Stdout
 	logger           *utils.Logger // Use the custom logger type
 	mu               sync.Mutex    // Protects writer access
 	initialized      bool
@@ -111,7 +110,7 @@ func (s *Server) Run() error {
 			s.processMessage(payload)
 		case <-s.shutdown:
 			s.logger.Println(utils.LevelInfo, "Shutdown signal received. Exiting processing loop.") // INFO level for shutdown
-			return nil // Normal shutdown
+			return nil                                                                              // Normal shutdown
 		}
 	}
 }
