@@ -5,72 +5,81 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings" // Added for ToUpper
 )
 
-// LogLevel defines the severity level for logging.
-type LogLevel int
-
+// Define valid log level strings
 const (
-	// LevelInfo logs informational messages.
-	LevelInfo LogLevel = iota
-	// LevelDebug logs detailed debugging information.
-	LevelDebug
+	LevelInfo  = "INFO"
+	LevelDebug = "DEBUG"
 )
 
 // Logger wraps the standard Go logger to provide level-based logging.
 type Logger struct {
 	stdLogger *log.Logger
-	level     LogLevel
+	level     string // Store level as a string ("INFO" or "DEBUG")
 }
 
 // New creates a new Logger instance.
-// It takes an output writer, prefix string, standard log flags, and the minimum LogLevel to output.
-func New(out io.Writer, prefix string, flag int, level LogLevel) *Logger {
+// It takes an output writer, prefix string, standard log flags, and the minimum level string ("INFO" or "DEBUG") to output.
+// Defaults to "INFO" if an invalid level string is provided.
+func New(out io.Writer, prefix string, flag int, level string) *Logger {
+	normalizedLevel := strings.ToUpper(level)
+	if normalizedLevel != LevelDebug {
+		normalizedLevel = LevelInfo // Default to INFO
+	}
 	return &Logger{
 		stdLogger: log.New(out, prefix, flag),
-		level:     level,
+		level:     normalizedLevel,
 	}
 }
 
-// SetLevel changes the minimum logging level for the logger.
-func (l *Logger) SetLevel(level LogLevel) {
-	l.level = level
+// SetLevel changes the minimum logging level for the logger using a string ("INFO" or "DEBUG").
+// Defaults to "INFO" if an invalid level string is provided.
+func (l *Logger) SetLevel(level string) {
+	normalizedLevel := strings.ToUpper(level)
+	if normalizedLevel != LevelDebug {
+		normalizedLevel = LevelInfo // Default to INFO
+	}
+	l.level = normalizedLevel
 }
 
-// shouldLog checks if a message with the given level should be logged based on the logger's configured level.
-func (l *Logger) shouldLog(level LogLevel) bool {
-	return level <= l.level
+// shouldLog checks if a message with the given level string should be logged.
+func (l *Logger) shouldLog(messageLevel string) bool {
+	normalizedMessageLevel := strings.ToUpper(messageLevel)
+	// Log if the logger level is DEBUG, or if both logger and message level are INFO.
+	return l.level == LevelDebug || normalizedMessageLevel == LevelInfo
 }
 
 // Printf logs a formatted string if the message level is appropriate.
-// The first argument is the level of the message (LevelInfo or LevelDebug).
-func (l *Logger) Printf(level LogLevel, format string, v ...interface{}) {
+// The first argument is the level string ("INFO" or "DEBUG").
+func (l *Logger) Printf(level string, format string, v ...interface{}) {
 	if l.shouldLog(level) {
 		l.stdLogger.Printf(format, v...)
 	}
 }
 
 // Println logs a line if the message level is appropriate.
-// The first argument is the level of the message (LevelInfo or LevelDebug).
-func (l *Logger) Println(level LogLevel, v ...interface{}) {
+// The first argument is the level string ("INFO" or "DEBUG").
+func (l *Logger) Println(level string, v ...interface{}) {
 	if l.shouldLog(level) {
 		l.stdLogger.Println(v...)
 	}
 }
 
 // Fatalf logs a formatted string and then calls os.Exit(1), regardless of the configured log level.
-// The first argument is the level of the message (LevelInfo or LevelDebug), but it's mainly for consistency.
+// The first argument is the level string ("INFO" or "DEBUG"), but it's mainly for consistency.
 // Fatal messages are always output.
-func (l *Logger) Fatalf(level LogLevel, format string, v ...interface{}) {
+func (l *Logger) Fatalf(level string, format string, v ...interface{}) {
 	// Fatal messages are always logged, regardless of level setting.
 	l.stdLogger.Output(2, fmt.Sprintf(format, v...)) // Use Output to control call depth for file/line info
 	os.Exit(1)
 }
 
 // Fatalln logs a line and then calls os.Exit(1), regardless of the configured log level.
-// The first argument is the level of the message (LevelInfo or LevelDebug), but it's mainly for consistency.
+// The first argument is the level string ("INFO" or "DEBUG"), but it's mainly for consistency.
 // Fatal messages are always output.
-func (l *Logger) Fatalln(level LogLevel, v ...interface{}) {
+func (l *Logger) Fatalln(level string, v ...interface{}) {
 	// Fatal messages are always logged, regardless of level setting.
 	l.stdLogger.Output(2, fmt.Sprintln(v...)) // Use Output to control call depth
 	os.Exit(1)
