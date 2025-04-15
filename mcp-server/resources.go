@@ -10,6 +10,15 @@ import (
 	"sqirvy/mcp/pkg/mcp"
 )
 
+// Define the example file resource as a package-level variable
+var exampleFileResource mcp.Resource = mcp.Resource{
+	Name:        "example.txt", // A user-friendly name
+	URI:         "file:///documents/example.txt",
+	Description: "An example text file.",
+	MimeType:    "text/plain", // Assuming text/plain
+	// Size could be determined by os.Stat if needed
+}
+
 // handleReadResource handles the "resources/read" request.
 // It parses the request, determines the resource type (e.g., file, data),
 // calls the appropriate reader function, and formats the response.
