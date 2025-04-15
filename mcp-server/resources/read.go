@@ -40,14 +40,16 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 	projectRoot := filepath.Clean(projectRootPath)
 	logger.Printf("Using hardcoded project root directory: %s", projectRoot)
 
-	// Use the path directly from the URI and clean it.
-	// Note: For file:// URIs, parsedURI.Path typically starts with '/' on Unix-like systems.
-	// On Windows, it might be like /C:/path/to/file.
-	// filepath.Clean handles platform differences.
-	filePath = filepath.Clean(parsedURI.Path)
+	// Treat the URI path as relative to the project root.
+	// Strip leading '/' from the URI path.
+	relativePath := strings.TrimPrefix(parsedURI.Path, "/")
+
+	// Join the project root with the relative path and clean it.
+	filePath = filepath.Join(projectRoot, relativePath)
+	filePath = filepath.Clean(filePath) // Clean the combined path
 
 	// Security Check: Ensure the final path is still within the project root.
-	// This helps prevent path traversal attacks (e.g., file:///etc/passwd if projectRoot is /home/user).
+	// This helps prevent path traversal attacks (e.g., file:///../outside_project).
 	if !strings.HasPrefix(filePath, projectRoot) {
 		logger.Printf("Security Alert: Attempt to access file outside project root. Requested URI: %s, Resolved Path: %s", uri, filePath)
 		return nil, "", fmt.Errorf("permission denied: cannot access files outside project root")
