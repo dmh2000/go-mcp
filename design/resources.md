@@ -151,3 +151,19 @@ response
   "id": 42
 }
 ```
+
+
+
+MCP-SERVER: 2025/04/14 17:08:04 server.go:173: Receive : {"jsonrpc":"2.0","method":"prompts/list","params":{},"id":7}
+MCP-SERVER: 2025/04/14 17:08:04 handlers.go:198: Handle  : prompts/list request (ID: 7)
+MCP-SERVER: 2025/04/14 17:08:04 server.go:289: Send    : {"jsonrpc":"2.0","result":{"prompts":[{"arguments":[{"description":"The user's query","name":"query","required":true}],"description":"A prompt for querying information using the Sqirvy system","name":"sqirvy_query"}]},"id":7}
+MCP-SERVER: 2025/04/14 17:08:04 server.go:173: Receive : {"jsonrpc":"2.0","method":"resources/read","params":{"uri":"file:///documents/example.txt"},"id":8}
+MCP-SERVER: 2025/04/14 17:08:04 handlers.go:293: Handle  : resources/read request (ID: 8)
+MCP-SERVER: 2025/04/14 17:08:04 read.go:42: Project root directory: /home/dmh2000/projects/mcp/mcp-client
+MCP-SERVER: 2025/04/14 17:08:04 read.go:59: Attempting to read file relative to project root: /home/dmh2000/projects/mcp/mcp-client/documents/example.txt
+MCP-SERVER: 2025/04/14 17:08:04 handlers.go:362: Error reading resource URI 'file:///documents/example.txt': file not found: /home/dmh2000/projects/mcp/mcp-client/documents/example.txt
+MCP-SERVER: 2025/04/14 17:08:04 server.go:289: Send    : {"jsonrpc":"2.0","error":{"code":-32602,"message":"file not found: /home/dmh2000/projects/mcp/mcp-client/documents/example.txt","data":{"uri":"file:///documents/example.txt"}},"id":8}
+MCP-SERVER: 2025/04/14 17:08:04 server.go:136: EOF received from reader. Shutting down read loop.
+MCP-SERVER: 2025/04/14 17:08:04 server.go:113: Shutdown signal received. Exiting processing loop.
+MCP-SERVER: 2025/04/14 17:08:04 main.go:56: Server exited normally.
+MCP-SERVER: 2025/04/14 17:08:04 main.go:57: --------------------------------------------------

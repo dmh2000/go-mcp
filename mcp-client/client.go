@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync/atomic"
 
 	"sqirvy/mcp/pkg/mcp" // Use the correct module path
 )
 
 const (
-	protocolVersion       = "2024-11-05" // Match the server/spec version
-	clientName            = "GoMCPExampleClient"
-	clientVersion         = "0.1.0"
+	protocolVersion         = "2024-11-05" // Match the server/spec version
+	clientName              = "GoMCPExampleClient"
+	clientVersion           = "0.1.0"
 	notificationInitialized = "initialized" // Method name for the initialized notification
 )
 
@@ -227,9 +228,6 @@ func (c *Client) callPingTool() error {
 	c.logger.Println("Ping tool call complete.")
 	return nil
 }
-
-// Add this import
-import "strings"
 
 // readRandomDataResource sends a resources/read request for 'data://random_data' and processes the response.
 func (c *Client) readRandomDataResource() error {
