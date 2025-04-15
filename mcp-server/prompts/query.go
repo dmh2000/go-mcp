@@ -1,16 +1,25 @@
 package prompts
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
-func QueryPrompt(promptName string, arguments map[string]string) string {
-	// Print the input parameters
-	promptInfo := fmt.Sprintf("name: %s\n", promptName)
+type QueryPromptParams struct {
+	Name      string            `json:"name"`
+	Arguments map[string]string `json:"arguments"`
+}
 
-	for key, value := range arguments {
-		promptInfo += fmt.Sprintf("%s: %s\n", key, value)
+func QueryPrompt(promptName string, arguments map[string]string) string {
+	query := QueryPromptParams{
+		Name:      promptName,
+		Arguments: arguments,
 	}
 
-	return promptInfo
+	s, err := json.Marshal(query)
+	if err != nil {
+		s = []byte(fmt.Sprintf("Failed to marshal query prompt: %v", err))
+	}
+
+	return string(s)
 }
