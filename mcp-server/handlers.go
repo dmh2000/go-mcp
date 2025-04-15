@@ -6,6 +6,7 @@ import (
 
 	// Import the new resources package
 	"sqirvy/mcp/pkg/mcp"
+	"sqirvy/mcp/pkg/utils" // Import the custom logger
 )
 
 // --- Initialization Handler ---
@@ -17,7 +18,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	var req mcp.RPCRequest // Use the base request type first
 	if err := json.Unmarshal(payload, &req); err != nil {
 		err = fmt.Errorf("failed to unmarshal base initialize request structure: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		// Marshal and return the error response bytes
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
@@ -30,7 +31,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	// Check if Params field is present and is a valid JSON object/array
 	if req.Params == nil {
 		err := fmt.Errorf("initialize request missing 'params' field")
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidRequest, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
 		if marshalErr != nil {
@@ -47,7 +48,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 		tempParamsBytes, err := json.Marshal(req.Params)
 		if err != nil {
 			err = fmt.Errorf("initialize request 'params' field is not a valid JSON object/array (marshal check failed): %w", err)
-			s.logger.Println(err.Error())
+			s.logger.Println(utils.LevelDebug, err.Error())
 			rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 			errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
 			if marshalErr != nil {
@@ -62,7 +63,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	var params mcp.InitializeParams
 	if err := json.Unmarshal(paramsRaw, &params); err != nil {
 		err = fmt.Errorf("failed to unmarshal initialize params object: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
 		if marshalErr != nil {
@@ -74,7 +75,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	// --- Capability Negotiation (Basic Example) ---
 	if params.ProtocolVersion == "" {
 		err := fmt.Errorf("client initialize request missing protocolVersion")
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		errorBytes, marshalErr := s.marshalErrorResponse(id, rpcErr)
 		if marshalErr != nil {
@@ -84,7 +85,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 	}
 	// Basic check: Log if client version differs, but proceed using our version.
 	if params.ProtocolVersion != s.serverVersion {
-		s.logger.Printf("Client requested protocol version '%s', server using '%s'", params.ProtocolVersion, s.serverVersion)
+		s.logger.Printf(utils.LevelDebug, "Client requested protocol version '%s', server using '%s'", params.ProtocolVersion, s.serverVersion)
 	}
 	// TODO: Add more robust version negotiation if needed.
 	// TODO: Inspect params.Capabilities and potentially enable/disable server features.
@@ -119,8 +120,7 @@ func (s *Server) handleInitializeRequest(id mcp.RequestID, payload []byte) ([]by
 // They no longer call sendResponse/sendErrorResponse directly.
 
 func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : tools/list request (ID: %v)", id)
-	s.logger.Printf("Handle  : tools/list request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : tools/list request (ID: %v)", id)
 
 	// Define the ping tool
 	pingTool := mcp.Tool{
@@ -147,7 +147,7 @@ func (s *Server) handleListTools(id mcp.RequestID) ([]byte, error) {
 // Note: This function is now primarily responsible for parsing and routing.
 // The actual tool logic is delegated (e.g., to handlePingTool).
 func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error) {
-	s.logger.Printf("Handle  : tools/call request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : tools/call request (ID: %v)", id)
 
 	var req mcp.RPCRequest
 	var params mcp.CallToolParams
@@ -155,7 +155,7 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 	// Unmarshal the base request to access params
 	if err := json.Unmarshal(payload, &req); err != nil {
 		err = fmt.Errorf("failed to unmarshal base tool call request: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -164,7 +164,7 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
 		err = fmt.Errorf("failed to re-marshal tool call params: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -172,7 +172,7 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 	// Unmarshal into the specific CallToolParams struct
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		err = fmt.Errorf("failed to unmarshal specific tool call params: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -186,14 +186,14 @@ func (s *Server) handleCallTool(id mcp.RequestID, payload []byte) ([]byte, error
 	// case "another_tool":
 	//     return s.handleAnotherTool(id, params)
 	default:
-		s.logger.Printf("Received call for unknown tool '%s' (ID: %v)", params.Name, id)
+		s.logger.Printf(utils.LevelDebug, "Received call for unknown tool '%s' (ID: %v)", params.Name, id)
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, fmt.Sprintf("Tool '%s' not found", params.Name), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
 }
 
 func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : prompts/list request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : prompts/list request (ID: %v)", id)
 
 	// Define the sqirvy_query prompt
 	sqirvyQueryPrompt := mcp.Prompt{
@@ -213,7 +213,7 @@ func (s *Server) handleListPrompts(id mcp.RequestID) ([]byte, error) {
 }
 
 func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, error) {
-	s.logger.Printf("Handle  : prompts/get request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : prompts/get request (ID: %v)", id)
 
 	var req mcp.RPCRequest
 	var params mcp.GetPromptParams
@@ -221,7 +221,7 @@ func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, erro
 	// Unmarshal the base request to access params
 	if err := json.Unmarshal(payload, &req); err != nil {
 		err = fmt.Errorf("failed to unmarshal base get prompt request: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeParseError, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -230,7 +230,7 @@ func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, erro
 	paramsBytes, err := json.Marshal(req.Params)
 	if err != nil {
 		err = fmt.Errorf("failed to re-marshal get prompt params: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -238,7 +238,7 @@ func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, erro
 	// Unmarshal into the specific GetPromptParams struct
 	if err := json.Unmarshal(paramsBytes, &params); err != nil {
 		err = fmt.Errorf("failed to unmarshal specific get prompt params: %w", err)
-		s.logger.Println(err.Error())
+		s.logger.Println(utils.LevelDebug, err.Error())
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeInvalidParams, err.Error(), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
@@ -249,14 +249,14 @@ func (s *Server) handleGetPrompt(id mcp.RequestID, payload []byte) ([]byte, erro
 		// Delegate to the specific handler in sqirvy_query.go
 		return s.handleSqirvyQueryPrompt(id, params)
 	default:
-		s.logger.Printf("Received get request for unknown prompt '%s' (ID: %v)", params.Name, id)
+		s.logger.Printf(utils.LevelDebug, "Received get request for unknown prompt '%s' (ID: %v)", params.Name, id)
 		rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, fmt.Sprintf("Prompt '%s' not found", params.Name), nil)
 		return s.marshalErrorResponse(id, rpcErr)
 	}
 }
 
 func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : resources/list request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : resources/list request (ID: %v)", id)
 
 	// This method lists *concrete* resources. Templates are listed via resources/templates/list.
 	// Use the example file resource defined in resources.go
@@ -272,7 +272,7 @@ func (s *Server) handleListResources(id mcp.RequestID) ([]byte, error) {
 
 // handleListResourceTemplates handles the "resources/templates/list" request.
 func (s *Server) handleListResourceTemplates(id mcp.RequestID) ([]byte, error) {
-	s.logger.Printf("Handle  : resources/templates/list request (ID: %v)", id)
+	s.logger.Printf(utils.LevelDebug, "Handle  : resources/templates/list request (ID: %v)", id)
 
 	// TODO: Add other resource templates here if needed
 	templates := []mcp.ResourceTemplate{RandomDataTemplate}

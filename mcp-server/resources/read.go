@@ -3,11 +3,12 @@ package resources
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings" // Added for HasPrefix and TrimPrefix
+
+	"sqirvy/mcp/pkg/utils" // Import the custom logger
 )
 
 // projectRootPath defines the hardcoded root directory for file URIs.
@@ -15,7 +16,7 @@ const projectRootPath = "/home/dmh2000/projects/mcp"
 
 // ReadFileResource reads the content of a file specified by a file:// URI.
 // It returns the content as bytes, the determined MIME type, and any error.
-func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
+func ReadFileResource(uri string, logger *utils.Logger) ([]byte, string, error) {
 	parsedURI, err := url.Parse(uri)
 	if err != nil {
 		return nil, "", fmt.Errorf("invalid URI format: %w", err)
@@ -33,12 +34,12 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 	if parsedURI.Host != "" && parsedURI.Host != "localhost" {
 		// Handle UNC paths if necessary, though less common for typical file URIs
 		// For simplicity, we'll assume standard file paths here.
-		logger.Printf("Warning: file URI host '%s' ignored, treating path as '%s'", parsedURI.Host, filePath)
+		logger.Printf(utils.LevelDebug, "Warning: file URI host '%s' ignored, treating path as '%s'", parsedURI.Host, filePath)
 	}
 
 	// Use the hardcoded project root path
 	projectRoot := filepath.Clean(projectRootPath)
-	logger.Printf("Using hardcoded project root directory: %s", projectRoot)
+	logger.Printf(utils.LevelDebug, "Using hardcoded project root directory: %s", projectRoot)
 
 	// Treat the URI path as relative to the project root.
 	// Strip leading '/' from the URI path.
@@ -51,11 +52,11 @@ func ReadFileResource(uri string, logger *log.Logger) ([]byte, string, error) {
 	// Security Check: Ensure the final path is still within the project root.
 	// This helps prevent path traversal attacks (e.g., file:///../outside_project).
 	if !strings.HasPrefix(filePath, projectRoot) {
-		logger.Printf("Security Alert: Attempt to access file outside project root. Requested URI: %s, Resolved Path: %s", uri, filePath)
+		logger.Printf(utils.LevelDebug, "Security Alert: Attempt to access file outside project root. Requested URI: %s, Resolved Path: %s", uri, filePath)
 		return nil, "", fmt.Errorf("permission denied: cannot access files outside project root")
 	}
 
-	logger.Printf("Attempting to read file relative to project root: %s", filePath)
+	logger.Printf(utils.LevelDebug, "Attempting to read file relative to project root: %s", filePath)
 
 	file, err := os.Open(filePath)
 	if err != nil {

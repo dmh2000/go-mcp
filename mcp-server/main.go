@@ -3,12 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"flag"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath" // Added for path manipulation
 
 	// Use the absolute module path
 	"sqirvy/mcp/pkg/mcp"
+	"sqirvy/mcp/pkg/utils" // Import the custom logger
 )
 
 func main() {
@@ -31,10 +34,11 @@ func main() {
 	}
 	defer logFile.Close()
 
-	logger := log.New(logFile, "MCP-SERVER: ", log.LstdFlags|log.Lshortfile)
-	logger.Println("--------------------------------------------------")
-	logger.Println("MCP Server starting...")
-	logger.Printf("Logging to file: %s", *logFilePath)
+	// Initialize the custom logger with DEBUG level
+	logger := utils.New(logFile, "MCP-SERVER: ", log.LstdFlags|log.Lshortfile, utils.LevelDebug)
+	logger.Println(utils.LevelInfo, "--------------------------------------------------") // Use INFO for separators
+	logger.Println(utils.LevelInfo, "MCP Server starting...")                             // Use INFO for startup message
+	logger.Printf(utils.LevelDebug, "Logging to file: %s", *logFilePath)
 
 	// --- Server Initialization ---
 	// Use standard input and output
@@ -47,22 +51,23 @@ func main() {
 
 	// --- Shutdown ---
 	if err != nil {
-		logger.Printf("Server exited with error: %v", err)
-		fmt.Fprintf(os.Stderr, "Server exited with error: %v\n", err) // Also print to stderr
-		logger.Println("--------------------------------------------------")
-		os.Exit(1)
+		// Use Fatalf which always logs and exits
+		logger.Fatalf(utils.LevelInfo, "Server exited with error: %v", err)
+		// fmt.Fprintf(os.Stderr, "Server exited with error: %v\n", err) // Fatalf logs and exits
+		// logger.Println(utils.LevelInfo, "--------------------------------------------------") // Not reached after Fatalf
+		// os.Exit(1) // Not needed, Fatalf exits
 	}
 
-	logger.Println("Server exited normally.")
-	logger.Println("--------------------------------------------------")
+	logger.Println(utils.LevelInfo, "Server exited normally.")
+	logger.Println(utils.LevelInfo, "--------------------------------------------------")
 }
 
 // Helper function to create a standard MethodNotFound error response
-func createMethodNotFoundResponse(id mcp.RequestID, method string, logger *log.Logger) ([]byte, error) {
+func createMethodNotFoundResponse(id mcp.RequestID, method string, logger *utils.Logger) ([]byte, error) {
 	rpcErr := mcp.NewRPCError(mcp.ErrorCodeMethodNotFound, fmt.Sprintf("Method '%s' not found", method), nil)
 	responseBytes, err := mcp.MarshalErrorResponse(id, rpcErr)
 	if err != nil {
-		logger.Printf("Error marshalling MethodNotFound error response for ID %v: %v", id, err)
+		logger.Printf(utils.LevelDebug, "Error marshalling MethodNotFound error response for ID %v: %v", id, err)
 		// Return a generic internal error if marshalling fails
 		genericErr := mcp.NewRPCError(mcp.ErrorCodeInternalError, "Failed to marshal error response", nil)
 		// We might not be able to marshal this either, but try
